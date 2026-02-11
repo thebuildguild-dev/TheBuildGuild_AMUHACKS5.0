@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Any, Dict
+from src.config import config
 from src.services.vector_service import search_vectors
 from src.services.embedding_service import embed_texts
 from src.services.ingestion_service import get_user_documents
@@ -125,7 +126,7 @@ async def search(request: QueryRequest):
                 """
                 
                 response = generate_content_with_retry(
-                    model='gemini-2.5-flash',
+                    model=config.GEMINI_GENERATION_MODEL,
                     contents=[analysis_prompt],
                     config=types.GenerateContentConfig(response_mime_type="application/json")
                 )

@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 import os
 import time
 import random
+from src.config import config
 from src.clients.gemini_client import get_gemini_client, generate_content_with_retry
 from google.genai import types
 
@@ -25,7 +26,7 @@ Rules:
 
 Extract the text:"""
         response = generate_content_with_retry(
-            model='gemini-2.5-flash',
+            model=config.GEMINI_GENERATION_MODEL,
             contents=[
                 types.Part.from_bytes(data=pdf_data, mime_type='application/pdf'),
                 prompt

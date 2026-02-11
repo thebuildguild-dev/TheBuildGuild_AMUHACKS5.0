@@ -1,13 +1,15 @@
 from typing import List
+from src.config import config
 from src.clients.gemini_client import get_gemini_client, generate_content_with_retry
 
-def embed_texts(texts: List[str], model: str = "gemini-embedding-001") -> List[List[float]]:
+def embed_texts(texts: List[str], model: str = None) -> List[List[float]]:
     """
     Generate embeddings for a list of texts using Gemini
     """
     if not texts:
-        return []
-
+        return []    
+    if model is None:
+        model = config.GEMINI_EMBEDDING_MODEL
     client = get_gemini_client()
     try:
         batch_size = 100

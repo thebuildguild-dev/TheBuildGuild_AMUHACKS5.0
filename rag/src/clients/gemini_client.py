@@ -1,13 +1,10 @@
-import os
 import time
 import random
 from typing import Optional
 from functools import wraps
 from google import genai
 from google.genai import types
-from dotenv import load_dotenv
-
-load_dotenv()
+from src.config import config
 
 _client = None
 
@@ -15,10 +12,9 @@ def get_gemini_client() -> genai.Client:
     """Get or create singleton Gemini client"""
     global _client
     if _client is None:
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
+        if not config.GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY environment variable not set")
-        _client = genai.Client(api_key=api_key)
+        _client = genai.Client(api_key=config.GEMINI_API_KEY)
     return _client
 
 def generate_content_with_retry(

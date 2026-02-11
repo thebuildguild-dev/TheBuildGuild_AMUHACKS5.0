@@ -1,22 +1,18 @@
-import os
 import uuid
 import json
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from typing import Dict, Optional, List, Any
 from datetime import datetime
-from dotenv import load_dotenv
-
-load_dotenv()
+from src.config import config
 
 def get_db_connection():
     """Get PostgreSQL connection"""
-    database_url = os.getenv("DATABASE_URL")
-    if not database_url:
+    if not config.DATABASE_URL:
         print("DATABASE_URL not set, DB features disabled")
         return None
     try:
-        return psycopg2.connect(database_url, cursor_factory=RealDictCursor)
+        return psycopg2.connect(config.DATABASE_URL, cursor_factory=RealDictCursor)
     except Exception as e:
         print(f"DB Connection failed: {e}")
         return None

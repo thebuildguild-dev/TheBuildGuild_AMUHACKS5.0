@@ -1,6 +1,7 @@
 from typing import List, Dict, Any
 import json
 import re
+from src.config import config
 from src.clients.gemini_client import get_gemini_client, generate_content_with_retry
 from google.genai import types
 
@@ -33,7 +34,7 @@ def detect_exam_papers(text_content: str) -> List[Dict[str, Any]]:
     
     try:
         response = generate_content_with_retry(
-            model='gemini-2.5-flash',
+            model=config.GEMINI_GENERATION_MODEL,
             contents=[prompt, text_content[:50000]],
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )

@@ -1,11 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-import os
 
+from src.config import config
 from src.api.routes import ingest, query, health
-
-load_dotenv()
 
 app = FastAPI(
     title="ExamIntel RAG Service",
@@ -14,27 +11,12 @@ app = FastAPI(
 )
 
 # CORS
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
-cors_allow_credentials = os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"
-cors_allow_methods = os.getenv("CORS_ALLOW_METHODS", "*")
-cors_allow_headers = os.getenv("CORS_ALLOW_HEADERS", "*")
-
-if cors_allow_methods == "*":
-    cors_allow_methods = ["*"]
-else:
-    cors_allow_methods = cors_allow_methods.split(",")
-
-if cors_allow_headers == "*":
-    cors_allow_headers = ["*"]
-else:
-    cors_allow_headers = cors_allow_headers.split(",")
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=cors_allow_credentials,
-    allow_methods=cors_allow_methods,
-    allow_headers=cors_allow_headers,
+    allow_origins=config.CORS_ORIGINS,
+    allow_credentials=config.CORS_ALLOW_CREDENTIALS,
+    allow_methods=config.CORS_ALLOW_METHODS,
+    allow_headers=config.CORS_ALLOW_HEADERS,
 )
 
 # Include Routers

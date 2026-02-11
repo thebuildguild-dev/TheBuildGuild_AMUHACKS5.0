@@ -1,15 +1,12 @@
-import os
 from typing import List, Dict, Any, Optional
 from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, FieldCondition, MatchAny
 from src.clients.qdrant_client import get_qdrant_client
+from src.config import config
 
-# Default configuration
-VECTOR_SIZE = int(os.getenv("VECTOR_SIZE", "3072"))
-
-DEFAULT_COLLECTION_NAME = os.getenv("COLLECTION_NAME", "examintel_pyq")
-
-def ensure_collection(collection_name: str = DEFAULT_COLLECTION_NAME, vector_size: int = 3072):
+def ensure_collection(collection_name: str = None, vector_size: int = 3072):
     """Ensure Qdrant collection exists"""
+    if collection_name is None:
+        collection_name = config.COLLECTION_NAME
     client = get_qdrant_client()
     try:
         if not client.collection_exists(collection_name):
