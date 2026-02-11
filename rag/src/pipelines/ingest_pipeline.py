@@ -194,13 +194,14 @@ def run_ingestion_pipeline(job_id: str, user_id: str, sources: List[Dict]):
         })
     finally:
         # Determine final status based on processing results
+        # Note: duplicates are already counted in success_count
         final_status = None
         if processed_count == len(sources):
             # All sources were processed (successfully or with errors)
-            if success_count + duplicates_count == len(sources):
-                # All sources succeeded or were duplicates
+            if success_count == len(sources):
+                # All sources succeeded (including duplicates)
                 final_status = 'completed'
-            elif success_count + duplicates_count > 0:
+            elif success_count > 0:
                 # Some succeeded, some failed
                 final_status = 'completed_with_errors'
             else:
