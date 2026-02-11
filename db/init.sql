@@ -101,6 +101,26 @@ CREATE TABLE IF NOT EXISTS document_chunks (
 CREATE INDEX IF NOT EXISTS idx_document_chunks_document_sha256 ON document_chunks(document_sha256);
 CREATE INDEX IF NOT EXISTS idx_document_chunks_qdrant_point_id ON document_chunks(qdrant_point_id);
 
+-- Create ingestion_jobs table for tracking document processing
+CREATE TABLE IF NOT EXISTS ingestion_jobs (
+    job_id UUID PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'processing',
+    total_sources INTEGER NOT NULL,
+    processed INTEGER DEFAULT 0,
+    successful INTEGER DEFAULT 0,
+    failed INTEGER DEFAULT 0,
+    duplicates INTEGER DEFAULT 0,
+    errors JSONB DEFAULT '[]',
+    documents JSONB DEFAULT '[]',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_user_id ON ingestion_jobs(user_id);
+CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_status ON ingestion_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_ingestion_jobs_created_at ON ingestion_jobs(created_at DESC);
+
 -- Create trigger to auto-update updated_at on recovery_plans
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -115,6 +135,11 @@ CREATE TRIGGER update_recovery_plans_updated_at
     FOR EACH ROW 
     EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_ingestion_jobs_updated_at 
+    BEFORE UPDATE ON ingestion_jobs 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
 -- Grant permissions (optional, for production with specific users)
 -- GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres;
 -- GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO postgres;
@@ -123,5 +148,5 @@ CREATE TRIGGER update_recovery_plans_updated_at
 DO $$
 BEGIN
     RAISE NOTICE 'ExamIntel schema initialized successfully!';
-    RAISE NOTICE 'Tables created: users, assessments, recovery_plans, documents, user_documents, document_chunks';
+    RAISE NOTICE 'Tables created: users, assessments, recovery_plans, documents, user_documents, papers, document_chunks, ingestion_jobs';
 END $$;

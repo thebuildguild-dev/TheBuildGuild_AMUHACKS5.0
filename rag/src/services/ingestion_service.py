@@ -9,9 +9,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# In-memory job status (for demo/simplicity)
-_job_status = {}
-
 def get_db_connection():
     """Get PostgreSQL connection"""
     database_url = os.getenv("DATABASE_URL")
@@ -25,31 +22,83 @@ def get_db_connection():
         return None
 
 def create_job(user_id: str, total_sources: int) -> str:
-    """Create a new ingestion job"""
+    """Create a new ingestion job in PostgreSQL"""
+    conn = get_db_connection()
     job_id = str(uuid.uuid4())
-    _job_status[job_id] = {
-        'job_id': job_id,
-        'user_id': user_id,
-        'status': 'processing',
-        'total_sources': total_sources,
-        'processed': 0,
-        'successful': 0,
-        'failed': 0,
-        'duplicates': 0,
-        'errors': [],
-        'documents': [],
-        'created_at': datetime.utcnow().isoformat(),
-    }
+    
+    if not conn:
+        return job_id
+    
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO ingestion_jobs 
+            (job_id, user_id, status, total_sources, processed, successful, failed, duplicates, errors, documents)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (job_id, user_id, 'processing', total_sources, 0, 0, 0, 0, json.dumps([]), json.dumps([]))
+        )
+        conn.commit()
+    except Exception as e:
+        print(f"Failed to create job in DB: {e}")
+    finally:
+        conn.close()
+    
     return job_id
 
 def update_job_status(job_id: str, updates: Dict):
-    """Update job status"""
-    if job_id in _job_status:
-        _job_status[job_id].update(updates)
+    """Update job status in PostgreSQL"""
+    conn = get_db_connection()
+    if not conn:
+        return
+    
+    try:
+        cur = conn.cursor()
+        
+        set_clauses = []
+        values = []
+        
+        for key, value in updates.items():
+            if key in ['errors', 'documents']:
+                set_clauses.append(f"{key} = %s")
+                values.append(json.dumps(value))
+            else:
+                set_clauses.append(f"{key} = %s")
+                values.append(value)
+        
+        if set_clauses:
+            values.append(job_id)
+            query = f"UPDATE ingestion_jobs SET {', '.join(set_clauses)} WHERE job_id = %s"
+            cur.execute(query, values)
+            conn.commit()
+    except Exception as e:
+        print(f"Failed to update job status: {e}")
+    finally:
+        conn.close()
 
 def get_job_status(job_id: str) -> Optional[Dict]:
-    """Get job status"""
-    return _job_status.get(job_id)
+    """Get job status from PostgreSQL"""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM ingestion_jobs WHERE job_id = %s", (job_id,))
+        result = cur.fetchone()
+        
+        if result:
+            job_data = dict(result)
+            job_data['created_at'] = job_data['created_at'].isoformat() if job_data.get('created_at') else None
+            job_data['updated_at'] = job_data['updated_at'].isoformat() if job_data.get('updated_at') else None
+            return job_data
+        return None
+    except Exception as e:
+        print(f"Failed to get job status: {e}")
+        return None
+    finally:
+        conn.close()
 
 def check_document_exists(sha256_hash: str) -> Optional[Dict]:
     """Check if document already exists in database"""
