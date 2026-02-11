@@ -147,19 +147,14 @@ def embed_texts(texts: List[str], model: str = "gemini-embedding-001") -> List[L
         )
         
         # Extract embeddings from result
-        embeddings = []
-        if hasattr(result, 'embeddings'):
-            embeddings = [embedding.values for embedding in result.embeddings]
-        else:
-            # Fallback: assume result is a list-like structure
-            embeddings = list(result)
+        embeddings = [embedding.values for embedding in result.embeddings]
         
         print(f"Generated {len(embeddings)} embeddings (dim: {len(embeddings[0]) if embeddings else 0})")
         
         return embeddings
     
     except Exception as e:
-        print(f" Error generating embeddings: {e}")
+        print(f"Error generating embeddings: {e}")
         raise
 
 
@@ -212,7 +207,7 @@ def generate_text(
         client = get_client()
         
         # Call Gemini generation API
-        result = client.models.generate_content(
+        response = client.models.generate_content(
             model=model,
             contents=prompt,
             config={
@@ -221,20 +216,15 @@ def generate_text(
             }
         )
         
-        # Extract text from result
-        if hasattr(result, 'text'):
-            generated_text = result.text
-        elif hasattr(result, 'candidates') and result.candidates:
-            generated_text = result.candidates[0].content.parts[0].text
-        else:
-            generated_text = str(result)
+        # Extract text from response
+        generated_text = response.text
         
         print(f"Generated {len(generated_text)} characters")
         
         return generated_text.strip()
     
     except Exception as e:
-        print(f" Error generating text: {e}")
+        print(f"Error generating text: {e}")
         raise
 
 

@@ -37,21 +37,51 @@ CREATE INDEX IF NOT EXISTS idx_recovery_plans_user_id ON recovery_plans(user_id)
 CREATE INDEX IF NOT EXISTS idx_recovery_plans_assessment_id ON recovery_plans(assessment_id);
 CREATE INDEX IF NOT EXISTS idx_recovery_plans_created_at ON recovery_plans(created_at DESC);
 
--- Create pyq_meta table (optional, for small metadata storage)
-CREATE TABLE IF NOT EXISTS pyq_meta (
-    id SERIAL PRIMARY KEY,
-    qdrant_id TEXT UNIQUE,
-    year INTEGER,
-    subject TEXT,
-    marks_estimate INTEGER,
-    original_filename TEXT,
-    excerpt TEXT,
+-- Create documents table for tracking uploaded PDFs
+CREATE TABLE IF NOT EXISTS documents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sha256_hash TEXT NOT NULL UNIQUE,  -- Deduplication key
+    original_filename TEXT NOT NULL,
+    total_pages INTEGER NOT NULL,
+    upload_source TEXT NOT NULL,  -- 'url' or 'file'
+    source_url TEXT,  -- URL if uploaded via URL
+    status TEXT DEFAULT 'processing',  -- 'processing', 'completed', 'failed'
+    error_message TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_pyq_meta_subject ON pyq_meta(subject);
-CREATE INDEX IF NOT EXISTS idx_pyq_meta_year ON pyq_meta(year);
-CREATE INDEX IF NOT EXISTS idx_pyq_meta_qdrant_id ON pyq_meta(qdrant_id);
+CREATE INDEX IF NOT EXISTS idx_documents_sha256 ON documents(sha256_hash);
+CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(status);
+CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC);
+
+-- Create user_documents table for linking users to their uploaded documents
+CREATE TABLE IF NOT EXISTS user_documents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    document_sha256 TEXT NOT NULL REFERENCES documents(sha256_hash) ON DELETE CASCADE,
+    linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, document_sha256)  -- Prevent duplicate links
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_documents_user_id ON user_documents(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_documents_document_sha256 ON user_documents(document_sha256);
+CREATE INDEX IF NOT EXISTS idx_user_documents_linked_at ON user_documents(linked_at DESC);
+
+-- Create document_chunks table for tracking PDF splits
+CREATE TABLE IF NOT EXISTS document_chunks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_sha256 TEXT NOT NULL REFERENCES documents(sha256_hash) ON DELETE CASCADE,
+    chunk_number INTEGER NOT NULL,  -- 1, 2, 3...
+    page_range_start INTEGER NOT NULL,
+    page_range_end INTEGER NOT NULL,
+    qdrant_point_id TEXT,  -- UUID in Qdrant vector DB
+    text_content TEXT,  -- Extracted text
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(document_sha256, chunk_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_chunks_document_sha256 ON document_chunks(document_sha256);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_qdrant_point_id ON document_chunks(qdrant_point_id);
 
 -- Create trigger to auto-update updated_at on recovery_plans
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -75,5 +105,5 @@ CREATE TRIGGER update_recovery_plans_updated_at
 DO $$
 BEGIN
     RAISE NOTICE 'AMU Recovery Engine schema initialized successfully!';
-    RAISE NOTICE 'Tables created: users, assessments, recovery_plans, pyq_meta';
+    RAISE NOTICE 'Tables created: users, assessments, recovery_plans, documents, user_documents, document_chunks';
 END $$;

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, File, UploadFile, Form
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 import os
@@ -33,17 +33,6 @@ def get_qdrant_client():
 
 
 # Pydantic models
-class IngestRequest(BaseModel):
-    year: str = Field(..., description="Academic year (e.g., '2024' or '2024-2025')")
-    folder_path: Optional[str] = Field(None, description="Path to folder containing PDF files (auto-constructed from year if not provided)")
-    force: bool = Field(False, description="Force re-ingestion if already exists")
-
-class IngestResponse(BaseModel):
-    success: bool
-    message: str
-    year: str
-    statistics: Optional[Dict[str, Any]] = None
-
 class QueryRequest(BaseModel):
     subject: str = Field(..., description="Subject name")
     query: str = Field(..., description="Natural language query or topic")
@@ -82,69 +71,6 @@ async def health_check():
             "status": "unhealthy",
             "error": str(e),
         }
-
-
-# Ingest endpoint
-@app.post("/ingest", response_model=IngestResponse)
-async def ingest_pdfs(
-    request: IngestRequest,
-    background_tasks: BackgroundTasks,
-    client: Any = Depends(get_qdrant_client)
-):
-    """
-    Trigger PDF ingestion for a specific academic year
-    Runs as a background task to avoid blocking
-    """
-    try:
-        # Import ingest module
-        from src.ingest import ingest_year
-        
-        # Validate year format
-        import re
-        if not re.match(r'^\d{4}(-\d{4})?$', request.year):
-            raise HTTPException(
-                status_code=400,
-                detail="Year must be in format YYYY or YYYY-YYYY"
-            )
-        
-        # Auto-construct folder path if not provided
-        if request.folder_path is None:
-            base_path = os.getenv("PYQ_BASE_PATH", "/app/data/pyq")
-            folder_path = os.path.join(base_path, request.year)
-            print(f"Auto-constructed folder path: {folder_path}")
-        else:
-            folder_path = request.folder_path
-        
-        # Validate folder exists
-        if not os.path.exists(folder_path):
-            raise HTTPException(
-                status_code=400,
-                detail=f"Folder path does not exist: {folder_path}"
-            )
-        
-        print(f"Starting ingestion for year {request.year} from {folder_path}")
-        
-        # Run ingestion in background
-        background_tasks.add_task(
-            ingest_year,
-            year=request.year,
-            folder_path=folder_path,
-            client=client,
-            force=request.force
-        )
-        
-        return IngestResponse(
-            success=True,
-            message=f"Ingestion started for year {request.year}",
-            year=request.year,
-            statistics={"status": "in_progress"}
-        )
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f" Ingestion error: {e}")
-        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
 
 
 # Query endpoint
@@ -410,6 +336,109 @@ async def inspect_data(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inspection failed: {str(e)}")
 
+@app.post("/ingest")
+async def ingest_documents(
+    background_tasks: BackgroundTasks,
+    user_id: str = Form(...),
+    urls: Optional[str] = Form(default=None),
+    files: Optional[List[UploadFile]] = File(default=None),
+    client: Any = Depends(get_qdrant_client)
+):
+    """
+    Ingest documents from URLs or file uploads
+    Runs as async background job
+    """
+    try:
+        from src.document_ingest import create_job, ingest_documents_async
+        
+        # Parse URLs if provided
+        url_list = []
+        if urls:
+            try:
+                url_list = json.loads(urls)
+            except:
+                url_list = [urls]
+        
+        # Validate input
+        if not url_list and not files:
+            raise HTTPException(
+                status_code=400,
+                detail="Must provide either URLs or file uploads"
+            )
+        
+        # Prepare sources list
+        sources = []
+        
+        # Add URLs
+        for url in url_list:
+            sources.append({
+                'type': 'url',
+                'value': url,
+                'filename': url.split('/')[-1]
+            })
+        
+        # Add file uploads
+        if files:
+            for file in files:
+                file_content = await file.read()
+                sources.append({
+                    'type': 'file',
+                    'value': file_content,
+                    'filename': file.filename
+                })
+        
+        # Create job
+        job_id = create_job(user_id, len(sources))
+        
+        print(f"Created ingestion job {job_id} for user {user_id}")
+        print(f"  Sources: {len(url_list)} URLs, {len(files) if files else 0} files")
+        
+        # Start background processing
+        background_tasks.add_task(
+            ingest_documents_async,
+            job_id,
+            user_id,
+            sources,
+            client
+        )
+        
+        return {
+            "success": True,
+            "job_id": job_id,
+            "message": "Document ingestion started",
+            "total_sources": len(sources)
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Document ingestion error: {e}")
+        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(e)}")
+
+
+@app.get("/jobs/{job_id}")
+async def get_ingestion_status(job_id: str, user_id: str):
+    """Get status of document ingestion job"""
+    try:
+        from src.document_ingest import get_job_status
+        
+        status = get_job_status(job_id)
+        
+        if not status:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        # Verify user owns this job
+        if status['user_id'] != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        return status
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Status check error: {e}")
+        raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}")
+
 
 # Root endpoint
 @app.get("/")
@@ -421,6 +450,7 @@ async def root():
         "endpoints": {
             "health": "GET /health",
             "ingest": "POST /ingest",
+            "jobs": "GET /jobs/{job_id}",
             "query": "POST /query",
             "stats": "GET /stats",
             "inspect": "GET /inspect?collection=amu_pyq&limit=5",

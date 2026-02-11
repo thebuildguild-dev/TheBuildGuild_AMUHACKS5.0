@@ -200,14 +200,14 @@ def search_vectors(
             if must_conditions:
                 query_filter = Filter(must=must_conditions)
         
-        # Perform search
-        search_result = client.search(
+        # Perform vector search using query_points
+        search_result = client.query_points(
             collection_name=collection_name,
-            query_vector=query_vector,
+            query=query_vector,
             limit=top_k,
             query_filter=query_filter,
             score_threshold=score_threshold,
-        )
+        ).points
         
         print(f"Found {len(search_result)} results in collection '{collection_name}'")
         return search_result

@@ -75,15 +75,14 @@ services:
       QDRANT_PORT: 6333
       QDRANT_API_KEY: ${QDRANT_API_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
-      QDRANT_DUMP_PATH: ${QDRANT_DUMP_PATH}
-      PYQ_BASE_PATH: ${PYQ_BASE_PATH}
+      DATABASE_URL: ${DATABASE_URL}
+      COLLECTION_NAME: ${COLLECTION_NAME:-amu_pyq}
     ports:
       - "${RAG_PORT}:8001"
-    volumes:
-      - ./data/pyq:/data/pyq:ro  # Read-only access to PYQ PDFs
-      - ./data/qdrant_dump:/app/qdrant_dump
     depends_on:
       qdrant:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     networks:
       - app-network
