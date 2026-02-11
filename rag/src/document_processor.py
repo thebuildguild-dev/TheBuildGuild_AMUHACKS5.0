@@ -7,6 +7,10 @@ import hashlib
 import tempfile
 import shutil
 import requests
+import json
+import re
+import time
+import random
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from typing import List, Dict, Optional, Tuple
@@ -18,6 +22,32 @@ from src.embedder import embed_texts, get_client
 # Gemini client will be obtained from embedder module
 
 PAGES_PER_CHUNK = 8  # Split PDFs into 8-page chunks
+
+
+def generate_content_with_retry(client, model, contents, config=None, retries=5, initial_delay=2):
+    """
+    Call Gemini generate_content with exponential backoff for 503 errors.
+    """
+    delay = initial_delay
+    for attempt in range(retries):
+        try:
+            return client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=config
+            )
+        except Exception as e:
+            error_str = str(e)
+            if "503" in error_str or "UNAVAILABLE" in error_str or "429" in error_str:
+                if attempt == retries - 1:
+                    raise  # Re-raise on last attempt
+                
+                wait_time = delay + random.uniform(0, 1)
+                print(f"Gemini API busy (503/429). Retrying in {wait_time:.2f}s... (Attempt {attempt + 1}/{retries})")
+                time.sleep(wait_time)
+                delay *= 2  # Exponential backoff
+            else:
+                raise  # Re-raise other errors immediately
 
 
 def compute_sha256(file_path: str) -> str:
@@ -175,8 +205,9 @@ Extract the text:"""
         
         # Use Gemini Flash for extraction with PDF data
         from google.genai import types
-        response = client.models.generate_content(
-            model='gemini-3-flash-preview',
+        response = generate_content_with_retry(
+            client=client,
+            model='gemini-2.5-flash',
             contents=[
                 types.Part.from_bytes(data=pdf_data, mime_type='application/pdf'),
                 prompt
@@ -261,3 +292,86 @@ def process_document(
     except Exception as e:
         print(f"Document processing failed: {e}")
         return {'error': str(e), 'filename': source.get('filename', 'unknown')}
+
+
+def detect_exam_papers(text_content: str) -> List[Dict[str, any]]:
+    """
+    Analyze extracted text to detect multiple exam papers and their metadata.
+    Returns list of paper objects with metadata.
+    """
+    try:
+        print("Detecting exam papers from extracted text...")
+        client = get_client()
+        
+        prompt = """You are analyzing extracted text from a university exam PDF which may contain MULTIPLE different exam papers concatenated together.
+
+Your task is to identify EACH distinct exam paper and extract its metadata.
+Papers usually start with a header containing Subject Name, Code, Session, Year, etc.
+When headers change, it indicates a new paper.
+
+Extract the following for EACH paper detected:
+- Subject Name (e.g. Applied Chemistry)
+- Subject Code (e.g. ACS1110)
+- Program (e.g. B.Tech, B.E, MCA)
+- Semester (e.g. I, II, III, Odd, Even, First, Second)
+- Academic Year (e.g. 2023-24)
+- Exam Session (e.g. Autumn, Winter, Odd Semester, Regular, Supply)
+- Credits
+- Duration
+- Start Page Estimate (The page number in the PDF where this paper likely starts, based on the text 1-indexed)
+- End Page Estimate (The page number where this paper likely ends)
+
+The input text contains content from pages. Try to map text to papers.
+
+Return STRICT JSON format:
+{
+  "papers": [
+    {
+      "subject": "string",
+      "subject_code": "string",
+      "program": "string",
+      "semester": "string",
+      "academic_year": "string", 
+      "exam_session": "string",
+      "credits": "string",
+      "duration": "string",
+      "start_page_estimate": int,
+      "end_page_estimate": int
+    }
+    ...
+  ]
+}
+
+If a field is not found, use null or empty string. DO NOT HALLUCINATE.
+"""
+        
+        from google.genai import types
+        response = generate_content_with_retry(
+            client=client,
+            model='gemini-2.5-flash',
+            contents=[prompt, text_content[:500000]],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json"
+            )
+        )
+        
+        result_text = response.text
+        if result_text.startswith('```json'):
+            result_text = result_text[7:]
+        if result_text.endswith('```'):
+            result_text = result_text[:-3]
+            
+        data = json.loads(result_text)
+        papers = data.get('papers', [])
+        print(f"Detected {len(papers)} papers in document")
+        return papers
+        
+    except Exception as e:
+        print(f"Paper detection failed: {e}")
+        return [{
+            "subject": "Unknown Subject",
+            "subject_code": "UNKNOWN",
+            "start_page_estimate": 1,
+            "end_page_estimate": 999
+        }]
+

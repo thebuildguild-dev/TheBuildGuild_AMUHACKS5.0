@@ -32,6 +32,111 @@ def get_qdrant_client():
     return _qdrant_client
 
 
+def extract_json_from_text(text: str) -> Optional[str]:
+    """
+    Robustly extract the outer-most JSON object from text using a stack-based approach.
+    Handles nested braces correctly, unlike simple regex.
+    """
+    if not text:
+        return None
+        
+    text = text.strip()
+    
+    # Find the start of the JSON object
+    start_idx = text.find('{')
+    if start_idx == -1:
+        return None
+        
+    stack = 0
+    in_string = False
+    escape = False
+    
+    for i, char in enumerate(text[start_idx:], start=start_idx):
+        if escape:
+            escape = False
+            continue
+            
+        if char == '\\':
+            escape = True
+            continue
+            
+        if char == '"':
+            in_string = not in_string
+            continue
+            
+        if not in_string:
+            if char == '{':
+                stack += 1
+            elif char == '}':
+                stack -= 1
+                if stack == 0:
+                    return text[start_idx : i+1]
+    
+    return None
+
+def fallback_parse_analysis(text: str) -> Dict[str, Any]:
+    """
+    Attempt to extract information from malformed JSON or raw text.
+    """
+    analysis = {
+        "topics": [],
+        "insights": "Analysis generated, but structural parsing failed.",
+        "recommended_focus": [],
+        "exam_strategy": "Review the raw analysis below.",
+        "parsing_error": True
+    }
+    
+    try:
+        # 1. Try to extract "insights"
+        # Look for "insights": "..." OR "insights": '...'
+        insights_match = re.search(r'"insights"\s*:\s*"(.*?)(?<!\\)"', text, re.DOTALL)
+        if not insights_match:
+             insights_match = re.search(r'"insights"\s*:\s*\'(.*?)(?<!\\)\'', text, re.DOTALL)
+             
+        if insights_match:
+            analysis['insights'] = insights_match.group(1).replace('\\"', '"').replace("\\'", "'")
+            
+        # 2. Try to extract "exam_strategy"
+        strategy_match = re.search(r'"exam_strategy"\s*:\s*"(.*?)(?<!\\)"', text, re.DOTALL)
+        if not strategy_match:
+             strategy_match = re.search(r'"exam_strategy"\s*:\s*\'(.*?)(?<!\\)\'', text, re.DOTALL)
+             
+        if strategy_match:
+            analysis['exam_strategy'] = strategy_match.group(1).replace('\\"', '"').replace("\\'", "'")
+            
+        # 3. Try to extract simple topics list if the complex structure failed
+        # Look for "topic": "Name"
+        topic_names = re.findall(r'"topic"\s*:\s*"(.*?)(?<!\\)"', text)
+        if topic_names:
+            seen = set()
+            for name in topic_names:
+                if name not in seen:
+                    analysis['topics'].append({
+                        "topic": name,
+                        "frequency": "N/A",  # Lost in parsing
+                        "likely_marks": "N/A"
+                    })
+                    seen.add(name)
+        
+        # 4. Try to extract recommended_focus
+        # This is usually a list of strings: "recommended_focus": ["A", "B"]
+        focus_block_match = re.search(r'"recommended_focus"\s*:\s*\[(.*?)\]', text, re.DOTALL)
+        if focus_block_match:
+            content = focus_block_match.group(1)
+            # Extract strings
+            items = re.findall(r'"(.*?)(?<!\\)"', content)
+            analysis['recommended_focus'] = items
+            
+        # Check if we successfully extracted anything
+        if analysis['insights'] or analysis['topics'] or analysis['exam_strategy']:
+            analysis['parsing_error'] = False
+            
+    except Exception as e:
+        print(f"Fallback parsing also encountered error: {e}")
+        
+    return analysis
+
+
 # Pydantic models
 class QueryRequest(BaseModel):
     subject: str = Field(..., description="Subject name")
@@ -180,27 +285,61 @@ Provide ONLY the JSON output, no additional text."""
                     max_output_tokens=1500
                 )
                 
-                # Try to parse JSON from response (handle markdown code blocks)
-                json_match = re.search(r'```json\s*(\{.*?\})\s*```', llm_response, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group(1)
+                # Check if response is empty or too short
+                if not llm_response or len(llm_response.strip()) < 10:
+                    print(f"Gemini returned empty or very short response")
+                    raise ValueError("Empty response from Gemini")
+                
+                print(f"📝 Gemini response preview: {llm_response[:150]}...")
+                
+                # Try to parse JSON from response using robust extraction
+                json_str = extract_json_from_text(llm_response)
+                
+                if json_str:
+                    print("✓ Extracted potential JSON object using stack-based parser")
+                    try:
+                        analysis = json.loads(json_str)
+                        print(f"✅ Gemini analysis generated successfully")
+                    except json.JSONDecodeError as e:
+                        print(f"Extracted JSON is malformed: {e}")
+                        print(f"   Attempted to parse: {json_str[:300]}...")
+                        print("🔄 Attempting fallback parsing on extracted segment...")
+                        analysis = fallback_parse_analysis(json_str)
+                        if analysis.get('parsing_error'):
+                            print("🔄 Fallback on segment failed, attempting on full response...")
+                            analysis = fallback_parse_analysis(llm_response)
                 else:
-                    # Try to find raw JSON
-                    json_match = re.search(r'\{.*\}', llm_response, re.DOTALL)
-                    json_str = json_match.group(0) if json_match else llm_response
+                    print("No JSON structure found in response")
+                    print("🔄 Attempting fallback parsing on full response...")
+                    analysis = fallback_parse_analysis(llm_response)
+                    
+                if analysis.get('parsing_error'):
+                     print("Parsing still marked as error after fallback")
+                else:
+                     print("✅ Fallback parsing retrieved partial data")
+            except (ValueError, Exception) as e:
+                error_msg = str(e)
+                print(f"Gemini analysis failed: {error_msg}")
                 
-                analysis = json.loads(json_str)
-                print(f"Gemini analysis generated successfully")
-                
-            except json.JSONDecodeError as e:
-                print(f"Failed to parse Gemini response as JSON: {e}")
-                analysis = {
-                    "raw_response": llm_response,
-                    "error": "Failed to parse structured analysis"
-                }
-            except Exception as e:
-                print(f"Gemini analysis failed: {e}")
-                analysis = None
+                # Provide user-friendly message based on error type
+                if "503" in error_msg or "UNAVAILABLE" in error_msg or "high demand" in error_msg:
+                    analysis = {
+                        "error": "AI analysis temporarily unavailable",
+                        "reason": "High demand on Gemini API - service will retry automatically",
+                        "note": "Query results are still valid and usable"
+                    }
+                elif "quota" in error_msg.lower() or "rate limit" in error_msg.lower():
+                    analysis = {
+                        "error": "Rate limit reached",
+                        "reason": "API quota exceeded - please try again in a moment",
+                        "note": "Query results are still valid and usable"
+                    }
+                else:
+                    analysis = {
+                        "error": "Analysis generation failed",
+                        "reason": error_msg[:200],
+                        "note": "Query results are still valid and usable"
+                    }
         
         print(f"Query successful, returned {len(results)} results")
         

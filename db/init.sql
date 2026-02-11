@@ -67,6 +67,27 @@ CREATE INDEX IF NOT EXISTS idx_user_documents_user_id ON user_documents(user_id)
 CREATE INDEX IF NOT EXISTS idx_user_documents_document_sha256 ON user_documents(document_sha256);
 CREATE INDEX IF NOT EXISTS idx_user_documents_linked_at ON user_documents(linked_at DESC);
 
+-- Create papers table to store exam paper metadata within a document
+CREATE TABLE IF NOT EXISTS papers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    document_sha256 TEXT NOT NULL REFERENCES documents(sha256_hash) ON DELETE CASCADE,
+    subject TEXT,
+    subject_code TEXT,
+    year TEXT,
+    semester TEXT,
+    program TEXT,
+    exam_session TEXT,
+    academic_year TEXT,
+    credits TEXT,
+    duration TEXT,
+    start_page INTEGER,
+    end_page INTEGER,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_papers_document_sha256 ON papers(document_sha256);
+
 -- Create document_chunks table for tracking PDF splits
 CREATE TABLE IF NOT EXISTS document_chunks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -82,6 +103,16 @@ CREATE TABLE IF NOT EXISTS document_chunks (
 
 CREATE INDEX IF NOT EXISTS idx_document_chunks_document_sha256 ON document_chunks(document_sha256);
 CREATE INDEX IF NOT EXISTS idx_document_chunks_qdrant_point_id ON document_chunks(qdrant_point_id);
+
+-- Create chunk_papers join table for many-to-many relationship
+CREATE TABLE IF NOT EXISTS chunk_papers (
+    chunk_id UUID REFERENCES document_chunks(id) ON DELETE CASCADE,
+    paper_id UUID REFERENCES papers(id) ON DELETE CASCADE,
+    PRIMARY KEY (chunk_id, paper_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chunk_papers_chunk_id ON chunk_papers(chunk_id);
+CREATE INDEX IF NOT EXISTS idx_chunk_papers_paper_id ON chunk_papers(paper_id);
 
 -- Create trigger to auto-update updated_at on recovery_plans
 CREATE OR REPLACE FUNCTION update_updated_at_column()

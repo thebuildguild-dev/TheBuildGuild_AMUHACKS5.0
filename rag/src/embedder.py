@@ -97,10 +97,13 @@ def retry_with_backoff(
                     error_msg = str(e).lower()
                     if "rate limit" in error_msg or "quota" in error_msg or "429" in error_msg:
                         print(f"Rate limit error, retrying in {delay}s (attempt {attempt + 1}/{max_retries})")
+                    elif "503" in error_msg or "unavailable" in error_msg or "high demand" in error_msg:
+                        print(f"Service temporarily unavailable (503), retrying in {delay}s (attempt {attempt + 1}/{max_retries})")
                     elif "timeout" in error_msg or "connection" in error_msg:
                         print(f"Connection error, retrying in {delay}s (attempt {attempt + 1}/{max_retries})")
                     else:
                         # Non-retryable error
+                        print(f"✗ Non-retryable error: {error_msg[:100]}")
                         raise
                     
                     time.sleep(delay)
@@ -176,11 +179,11 @@ def embed_query(query: str, model: str = "gemini-embedding-001") -> List[float]:
     return embeddings[0]
 
 
-@retry_with_backoff(max_retries=3)
+@retry_with_backoff(max_retries=5, initial_delay=2.0, backoff_factor=2.0)
 @rate_limit(max_calls=30, period=60)
 def generate_text(
     prompt: str,
-    model: str = "gemini-3-flash-preview",
+    model: str = "gemini-2.5-flash",
     max_output_tokens: int = 2048,
     temperature: float = 0.7
 ) -> str:
@@ -189,7 +192,7 @@ def generate_text(
     
     Args:
         prompt: Input prompt text
-        model: Model name (default: gemini-3-flash-preview)
+        model: Model name (default: gemini-2.5-flash)
         max_output_tokens: Maximum tokens to generate
         temperature: Sampling temperature (0.0-1.0)
     
