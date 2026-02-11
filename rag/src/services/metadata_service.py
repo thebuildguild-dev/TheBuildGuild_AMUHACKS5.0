@@ -46,8 +46,9 @@ def detect_exam_papers(text_content: str) -> List[Dict[str, Any]]:
                  json_str = json_str.split("```")[1].split("```")[0]
                  
              return json.loads(json_str)
-        except json.JSONDecodeError:
-             print("Failed to parse JSON for metadata.")
+        except json.JSONDecodeError as e:
+             print(f"Failed to parse JSON for metadata: {e}")
+             print(f"Gemini response (first 500 chars): {response.text[:500]}")
              return []
 
     except Exception as e:
