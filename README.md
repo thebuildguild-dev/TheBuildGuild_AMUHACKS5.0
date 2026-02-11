@@ -1,5 +1,5 @@
-# AMU Academic Recovery Engine
+# ExamIntel
 
-AI-powered personalized study plans for AMU students using 15 years of past year questions, RAG, and Google Gemini.
+AI-powered academic recovery using PYQ intelligence for students.
 
 #AMUHACKS5.0 #CSSAMU #CSDAMU #AMU

@@ -7,9 +7,9 @@ from src.api.routes import ingest, query, health
 load_dotenv()
 
 app = FastAPI(
-    title="AMU Recovery RAG Service",
-    description="RAG service for Past Year Questions analysis using Gemini",
-    version="2.0.0"
+    title="ExamIntel RAG Service",
+    description="AI-powered PYQ intelligence using RAG and Gemini",
+    version="1.0.0"
 )
 
 # CORS
@@ -28,4 +28,4 @@ app.include_router(health.router, tags=["Health"])
 
 @app.get("/")
 def root():
-    return {"message": "AMU Recovery RAG Service is running"}
+    return {"message": "ExamIntel RAG Service is running"}

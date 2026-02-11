@@ -2,7 +2,7 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
-    container_name: amu_postgres
+    container_name: examintel_postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -24,7 +24,7 @@ services:
   # Qdrant Vector Database
   qdrant:
     image: qdrant/qdrant:latest
-    container_name: amu_qdrant
+    container_name: examintel_qdrant
     restart: unless-stopped
     environment:
       QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-}  # Optional: leave empty for no auth
@@ -46,7 +46,7 @@ services:
   # Redis Cache (Optional)
   redis:
     image: redis:7-alpine
-    container_name: amu_redis
+    container_name: examintel_redis
     restart: unless-stopped
     command: sh -c 'if [ -n "$REDIS_PASSWORD" ]; then redis-server --requirepass "$REDIS_PASSWORD"; else redis-server; fi'
     environment:
@@ -68,7 +68,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.rag
-    container_name: amu_rag
+    container_name: examintel_rag
     restart: unless-stopped
     environment:
       QDRANT_HOST: qdrant
@@ -76,7 +76,7 @@ services:
       QDRANT_API_KEY: ${QDRANT_API_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       DATABASE_URL: ${DATABASE_URL}
-      COLLECTION_NAME: ${COLLECTION_NAME:-amu_pyq}
+      COLLECTION_NAME: ${COLLECTION_NAME:-examintel_pyq}
     ports:
       - "${RAG_PORT}:8001"
     volumes:
@@ -99,7 +99,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: amu_backend
+    container_name: examintel_backend
     restart: unless-stopped
     environment:
       PORT: 8000

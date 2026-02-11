@@ -6,7 +6,7 @@ from src.clients.qdrant_client import get_qdrant_client
 # Default configuration
 VECTOR_SIZE = int(os.getenv("VECTOR_SIZE", "3072"))
 
-DEFAULT_COLLECTION_NAME = os.getenv("COLLECTION_NAME", "amu_pyq")
+DEFAULT_COLLECTION_NAME = os.getenv("COLLECTION_NAME", "examintel_pyq")
 
 def ensure_collection(collection_name: str = DEFAULT_COLLECTION_NAME, vector_size: int = 3072):
     """Ensure Qdrant collection exists"""

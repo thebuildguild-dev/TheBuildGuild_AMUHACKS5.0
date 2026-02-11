@@ -1,4 +1,4 @@
--- AMU Academic Recovery Engine Database Schema
+-- ExamIntel Database Schema
 -- This script runs automatically on first PostgreSQL container startup
 
 -- Create users table
@@ -122,6 +122,6 @@ CREATE TRIGGER update_recovery_plans_updated_at
 -- Success message
 DO $$
 BEGIN
-    RAISE NOTICE 'AMU Recovery Engine schema initialized successfully!';
+    RAISE NOTICE 'ExamIntel schema initialized successfully!';
     RAISE NOTICE 'Tables created: users, assessments, recovery_plans, documents, user_documents, document_chunks';
 END $$;
