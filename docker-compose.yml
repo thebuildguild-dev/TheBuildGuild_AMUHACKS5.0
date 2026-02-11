@@ -1,0 +1,135 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: amu_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: amu_qdrant
+    restart: unless-stopped
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-}  # Optional: leave empty for no auth
+    ports:
+      - "${QDRANT_PORT}:6333"
+      - "6334:6334"  # gRPC port
+    volumes:
+      - qdrant_data:/qdrant/storage
+      - ./data/qdrant_dump:/qdrant/dump
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/localhost/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # Redis Cache (Optional)
+  redis:
+    image: redis:7-alpine
+    container_name: amu_redis
+    restart: unless-stopped
+    command: sh -c 'if [ -n "$REDIS_PASSWORD" ]; then redis-server --requirepass "$REDIS_PASSWORD"; else redis-server; fi'
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "sh", "-c", "if [ -n \"$REDIS_PASSWORD\" ]; then redis-cli -a \"$REDIS_PASSWORD\" ping; else redis-cli ping; fi"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # RAG Service
+  rag:
+    build:
+      context: .
+      dockerfile: Dockerfile.rag
+    container_name: amu_rag
+    restart: unless-stopped
+    environment:
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      QDRANT_DUMP_PATH: ${QDRANT_DUMP_PATH}
+      PYQ_BASE_PATH: ${PYQ_BASE_PATH}
+    ports:
+      - "${RAG_PORT}:8001"
+    volumes:
+      - ./data/pyq:/data/pyq:ro  # Read-only access to PYQ PDFs
+      - ./data/qdrant_dump:/app/qdrant_dump
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Backend Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: amu_backend
+    restart: unless-stopped
+    environment:
+      PORT: 8000
+      NODE_ENV: ${NODE_ENV}
+      DATABASE_URL: ${DATABASE_URL}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON}
+      RAG_URL: ${RAG_URL}
+    ports:
+      - "${BACKEND_PORT}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rag:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  qdrant_data:
+    driver: local
+  redis_data:
+    driver: local
