@@ -1,6 +1,5 @@
 import os
 import uuid
-import asyncio
 import tempfile
 import shutil
 from typing import List, Dict, Any, Optional
@@ -23,7 +22,7 @@ from src.services.ingestion_service import (
     save_document_metadata, save_chunk_metadata, save_papers
 )
 
-async def run_ingestion_pipeline(job_id: str, user_id: str, sources: List[Dict]):
+def run_ingestion_pipeline(job_id: str, user_id: str, sources: List[Dict]):
     """
     Orchestrate the full ingestion pipeline.
     """
