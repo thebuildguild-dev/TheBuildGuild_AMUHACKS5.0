@@ -79,6 +79,8 @@ services:
       COLLECTION_NAME: ${COLLECTION_NAME:-amu_pyq}
     ports:
       - "${RAG_PORT}:8001"
+    volumes:
+      - ./rag/src:/app/src
     depends_on:
       qdrant:
         condition: service_healthy
