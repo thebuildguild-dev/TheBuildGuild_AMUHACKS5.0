@@ -1,0 +1,87 @@
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Firebase service account
+*firebase*.json
+*serviceAccount*.json
+service-account-*.json
+
+# Node.js (Backend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+.pnpm-debug.log*
+dist/
+build/
+
+# Python (RAG Service)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Database and storage
+*.db
+*.sqlite
+*.sqlite3
+postgres-data/
+redis-data/
+qdrant-data/
+data/qdrant_dump/
+
+# PDFs and large data files
+*.pdf
+data/pyq/**/*.pdf
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Project specific
+structure.txt
+/docs/*.md
