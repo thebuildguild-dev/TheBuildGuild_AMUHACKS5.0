@@ -3,10 +3,12 @@ from pydantic import BaseModel
 from typing import List, Optional, Any, Dict
 from src.services.vector_service import search_vectors
 from src.services.embedding_service import embed_texts
+from src.services.ingestion_service import get_user_documents
 
 router = APIRouter()
 
 class QueryRequest(BaseModel):
+    user_id: str
     query: str
     subject: Optional[str] = None
     top_k: int = 5
@@ -18,9 +20,22 @@ class QueryResponse(BaseModel):
 @router.post("/query", response_model=QueryResponse)
 async def search(request: QueryRequest):
     """
-    Semantic search over ingested papers
+    Semantic search over ingested papers (user-specific)
     """
     try:
+        # Get user's accessible documents
+        user_documents = get_user_documents(request.user_id)
+        
+        if not user_documents:
+            return {
+                "results": [],
+                "analysis": {
+                    "topics": [],
+                    "insights": "No PYQs available. Please upload some past year question papers to get started.",
+                    "difficulty": "N/A"
+                }
+            }
+        
         # Generate embedding
         embeddings = embed_texts([request.query])
         if not embeddings:
@@ -28,7 +43,34 @@ async def search(request: QueryRequest):
             
         vector = embeddings[0]
 
-        results = search_vectors(vector, limit=request.top_k)
+        # Search with user document filter
+        results = search_vectors(
+            vector, 
+            limit=request.top_k,
+            document_sha256_filter=user_documents
+        )
+        
+        if not results:
+            return {
+                "results": [],
+                "analysis": {
+                    "topics": [],
+                    "insights": "No matching questions found in your uploaded PYQs for this query.",
+                    "difficulty": "N/A"
+                }
+            }
+        
+        # Relevance threshold check - filter out irrelevant queries
+        RELEVANCE_THRESHOLD = 0.55
+        if results[0].score < RELEVANCE_THRESHOLD:
+            return {
+                "results": [],
+                "analysis": {
+                    "topics": [],
+                    "insights": "Your query doesn't seem related to academic exam topics from your uploaded PYQs. Please ask about subjects, concepts, or topics from your uploaded Past Year Questions (PYQs). For example: 'differential equations', 'circuit theory', 'data structures', etc.",
+                    "difficulty": "N/A"
+                }
+            }
         
         # Format results
         formatted_results = []

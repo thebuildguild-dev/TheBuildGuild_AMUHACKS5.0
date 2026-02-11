@@ -288,3 +288,29 @@ def save_chunk_metadata(doc_sha256: str, chunk_info: Dict, qdrant_id: str, text_
         print(f"Chunk metadata save error: {e}")
     finally:
         conn.close()
+
+def get_user_documents(user_id: str) -> List[str]:
+    """
+    Get all document SHA256 hashes that a user has access to.
+    """
+    conn = get_db_connection()
+    if not conn:
+        return []
+    
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT DISTINCT document_sha256 
+            FROM user_documents 
+            WHERE user_id = %s
+            """,
+            (user_id,)
+        )
+        results = cur.fetchall()
+        return [row['document_sha256'] for row in results]
+    except Exception as e:
+        print(f"Error fetching user documents: {e}")
+        return []
+    finally:
+        conn.close()
