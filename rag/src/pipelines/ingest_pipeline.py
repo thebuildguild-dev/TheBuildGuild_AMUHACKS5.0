@@ -78,12 +78,20 @@ def run_ingestion_pipeline(job_id: str, user_id: str, sources: List[Dict]):
                 duplicates_count += 1
                 documents_list.append(sha256)
                 
-                update_job_status(job_id, {
+                # Check if this was the last source to process
+                is_last_source = (processed_count == len(sources))
+                update_data = {
                     'processed': processed_count,
                     'successful': success_count,
                     'duplicates': duplicates_count,
                     'documents': documents_list
-                })
+                }
+                
+                # Mark as completed if all sources are done
+                if is_last_source:
+                    update_data['status'] = 'completed'
+                
+                update_job_status(job_id, update_data)
                 continue
 
             # 4. Split PDF
@@ -180,14 +188,31 @@ def run_ingestion_pipeline(job_id: str, user_id: str, sources: List[Dict]):
         errors_list.append(str(e))
         update_job_status(job_id, {
             "status": "failed", 
-            "errors": errors_list
+            "errors": errors_list,
+            "processed": processed_count,
+            "successful": success_count,
+            "duplicates": duplicates_count
         })
     finally:
+        # Determine final status
+        final_status = None
+        if processed_count == len(sources):
+            if errors_list:
+                final_status = 'completed_with_errors'
+            else:
+                final_status = 'completed'
+        
         # Final status update ensures consistency
-        update_job_status(job_id, {
+        final_update = {
             'processed': processed_count,
             'successful': success_count,
             'duplicates': duplicates_count,
-            'errors': errors_list
-        })
+            'errors': errors_list,
+            'documents': documents_list
+        }
+        
+        if final_status:
+            final_update['status'] = final_status
+            
+        update_job_status(job_id, final_update)
         cleanup_directory(work_dir)
