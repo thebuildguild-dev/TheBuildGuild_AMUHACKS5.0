@@ -76,18 +76,19 @@ Students struggle with academic recovery due to:
 ```mermaid
 graph TB
     A[AMU Student] -->|1. Google OAuth| B[React Frontend]
+    A -->|2. Upload PDF URLs| B
     
-    B -->|2. Assessment data| C[Backend API<br/>Node.js + Express]
+    B -->|3. Assessment/Upload data| C[Backend API<br/>Node.js + Express]
     
-    C -->|3. Query| D[RAG Engine]
+    C -->|4. Query/Ingest| D[RAG Engine]
     
-    D -->|4. Semantic search| E[(Qdrant Vector DB<br/>15 years PYQs)]
+    D -->|5. Semantic search/Store| E[(Qdrant Vector DB<br/>PYQs)]
     
-    D -->|5. Analyze patterns| F[Google Gemini AI<br/>Pattern Analysis]
+    D -->|6. Analyze patterns| F[Google Gemini AI<br/>Pattern Analysis]
     
-    F -->|6. Intelligence| G[Planning Algorithm<br/>Priority + Schedule]
+    F -->|7. Intelligence| G[Planning Algorithm<br/>Priority + Schedule]
     
-    G -->|7. Recovery plan| B
+    G -->|8. Recovery plan| B
     
     C -.->|Store| H[(PostgreSQL)]
     C -.->|Cache| I[(Redis)]
@@ -132,33 +133,36 @@ sequenceDiagram
     API-->>Frontend: 9. Auth Success
     Frontend-->>Student: 10. Redirect to Dashboard
 
-    rect rgb(240,248,255)
-        Note over Student,DB: Assessment & Plan Generation
-        Student->>Frontend: 11. Submit 6-7 answers
-        Frontend->>API: 12. POST assessment + Bearer Token
-        API->>AdminSDK: 13. Verify Token
-        AdminSDK-->>API: 14. Valid
-        
-        API->>RAG: 15. Query PYQs for subjects
-        RAG->>VDB: 16. Semantic search
-        VDB-->>RAG: 17. Relevant PYQs (2010-2025)
-        
-        RAG->>Gemini: 18. Analyze patterns
-        Gemini-->>RAG: 19. Topic frequency + insights
-        
-        RAG-->>API: 20. PYQ intelligence
-        API->>API: 21. Run planning algorithm
-        API->>DB: 22. Save recovery plan
-        API-->>Frontend: 23. Recovery plan JSON
-        Frontend-->>Student: 24. Display personalized dashboard
+    rect rgb(255,250,240)
+        Note over Student,VDB: New: PDF Ingestion Flow
+        Student->>Frontend: 11. Upload PDF URLs
+        Frontend->>API: 12. POST /rag/ingest
+        API->>RAG: 13. Trigger Processing Job
+        RAG->>Gemini: 14. Generate Embeddings
+        RAG->>VDB: 15. Store Vectors (Upsert)
+        RAG-->>API: 16. Ingestion Status
+        API-->>Frontend: 17. Success Notification
     end
 
-    rect rgb(240,255,240)
-        Note over Frontend,API: Subsequent Requests
-        Frontend->>API: API Request + Bearer Token
-        API->>AdminSDK: Verify Token
-        AdminSDK-->>API: Valid
-        API-->>Frontend: Protected Data
+    rect rgb(240,248,255)
+        Note over Student,DB: Assessment & Plan Generation
+        Student->>Frontend: 18. Submit 6-7 answers
+        Frontend->>API: 19. POST assessment + Bearer Token
+        API->>AdminSDK: 20. Verify Token
+        AdminSDK-->>API: 21. Valid
+        
+        API->>RAG: 22. Query PYQs for subjects
+        RAG->>VDB: 23. Semantic search
+        VDB-->>RAG: 24. Relevant PYQs
+        
+        RAG->>Gemini: 25. Analyze patterns
+        Gemini-->>RAG: 26. Topic frequency + insights
+        
+        RAG-->>API: 27. PYQ intelligence
+        API->>API: 28. Run planning algorithm
+        API->>DB: 29. Save recovery plan
+        API-->>Frontend: 30. Recovery plan JSON
+        Frontend-->>Student: 31. Display personalized dashboard
     end
 ```
 
@@ -199,25 +203,25 @@ sequenceDiagram
 
 ```mermaid
 graph TD
-    subgraph "One-Time Setup"
-        A["AMU PYQ PDFs (2010-2025)"] -->|1. Parse text| B[PDF Processor]
-        B -->|2. Chunk 500 tokens| C[Text Splitter]
-        C -->|3. Add metadata| D[Enrichment]
-        D -->|4. Generate embeddings| E[Gemini Embedding API]
-        E -->|5. Store vectors| F["Qdrant Vector DB (Self-hosted)"]
+    subgraph "PDF Ingestion (Student Triggered)"
+        A[Student Uploads PDF URL] -->|1. Trigger Ingestion| B[RAG API]
+        B -->|2. Download & Parse| C[PDF Processor]
+        C -->|3. Chunk Text| D[Text Splitter]
+        D -->|4. Generate Embeddings| E[Gemini Embedding API]
+        E -->|5. Store Vectors| F[(Qdrant Vector DB)]
+        B -->|6. Notify Completion| G[Student Dashboard]
     end
     
     subgraph "Runtime Query"
-        G["Student Query: Data Structures"] -->|6. Embed query| H[Gemini Embedding]
-        H -->|7. Similarity search| F
-        F -->|8. Top results| I[Retrieved PYQs]
-        I -->|9. Context| J[Gemini AI Analysis]
-        J -->|10. JSON output| K[Topic Frequency & Strategy]
+        H[Student Query] -->|7. Embed Query| I[Gemini Embedding]
+        I -->|8. Similarity Search| F
+        F -->|9. Top Results| J[Retrieved PYQs]
+        J -->|10. Context Analysis| K[Gemini AI Analysis]
+        K -->|11. Study Plan| L[Recovery Plan JSON]
     end
     
     style F fill:#4a90e2,color:#fff
-    style J fill:#f39c12,color:#fff
-    style K fill:#2ecc71,color:#fff
+    style K fill:#f39c12,color:#fff
 ```
 
 ### Planning Algorithm
