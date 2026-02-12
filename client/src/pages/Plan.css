@@ -361,6 +361,9 @@
   gap: 0.5rem;
   font-size: 0.95rem;
   line-height: 1.5;
+  word-break: break-word; /* Prevents overflow */
+  overflow-wrap: break-word; /* Ensures text wraps */
+  max-width: 100%; /* Restricts width */
 }
 
 .strategy-block li::before {
