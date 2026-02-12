@@ -1,6 +1,10 @@
 import { query } from '../db/pgClient.js';
 import { performQuery } from './ragService.js';
 import log from '../utils/logger.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import config from '../config/index.js';
+
+const genAI = config.geminiApiKey ? new GoogleGenerativeAI(config.geminiApiKey) : null;
 
 export const calculatePriority = (
     pyqFreq,
@@ -127,147 +131,213 @@ const createSchedule = (prioritizedTopics, availableHours = 40, daysAvailable = 
     return schedule;
 };
 
-export const generatePlan = async (userId, assessment) => {
+export const generatePlan = async (userId, assessmentData) => {
     try {
-        const { assessmentId, answers, gapVector } = assessment;
+        const {
+            examDate,
+            subject,
+            topics,
+            stressLevel,
+            syllabusCoverage,
+            additionalNotes
+        } = assessmentData;
 
-        log.info(`Generating plan for user ${userId}, assessment ${assessmentId}`);
+        log.info(`Generating AI plan for user ${userId}, subject: ${subject}`);
 
-        const subjects = Object.keys(gapVector.subjects || {});
-
-        if (subjects.length === 0) {
-            throw new Error('No subjects found in assessment');
+        if (!genAI) {
+            throw new Error('Gemini AI not configured - missing GEMINI_API_KEY');
         }
 
-        const ragPromises = subjects.map(async (subject) => {
-            const subjectData = gapVector.subjects[subject];
-            const topics = Object.keys(subjectData.topics || {});
+        const daysUntilExam = Math.max(1, Math.ceil((new Date(examDate) - new Date()) / (1000 * 60 * 60 * 24)));
+        const topicsList = Array.isArray(topics) ? topics : [];
 
-            const weakTopics = topics.filter(
-                topic => subjectData.topics[topic].confidence < 3
-            );
+        const queryText = topicsList.length > 0
+            ? `${subject}: ${topicsList.join(', ')}`
+            : subject;
 
-            const queryText = weakTopics.length > 0
-                ? `Questions about ${weakTopics.join(', ')}`
-                : `Common exam questions for ${subject}`;
+        log.info(`Querying RAG for subject: ${subject}, topics: ${topicsList.join(', ')}`);
+        const ragResult = await performQuery(userId, subject, queryText, 20);
 
-            const ragResult = await performQuery(userId, subject, queryText, 15);
+        const pyqAnalysis = analyzeRAGResults(ragResult.results || []);
 
-            return {
+        const prompt = `You are an expert academic recovery planner. Generate a comprehensive study plan based on the following:
+
+**Student Situation:**
+- Exam Date: ${examDate} (${daysUntilExam} days remaining)
+- Subject: ${subject}
+- Focus Topics: ${topicsList.length > 0 ? topicsList.join(', ') : 'General coverage'}
+- Current Syllabus Coverage: ${syllabusCoverage}%
+- Stress Level: ${stressLevel}/10
+- Additional Notes: ${additionalNotes || 'None'}
+
+**Past Year Question (PYQ) Analysis:**
+${pyqAnalysis.summary}
+
+**Priority Calculation Formula:**
+Priority = (PYQ_Frequency × Average_Marks × Understanding_Gap × Stress_Factor) / (Current_Coverage + 0.1)
+
+Where:
+- PYQ_Frequency: How often topic appears in past papers (from analysis above)
+- Average_Marks: Expected marks per topic (3-10 range)
+- Understanding_Gap: Inversely related to syllabus coverage (10 - syllabusCoverage/10)
+- Stress_Factor: ${stressLevel}
+- Current_Coverage: ${syllabusCoverage / 100}
+
+**Generate a JSON recovery plan with:**
+{
+  "summary": {
+    "totalDays": ${daysUntilExam},
+    "studyHoursPerDay": <calculated based on stress and coverage>,
+    "totalTopics": <number>,
+    "confidence": "<Low/Medium/High based on days and coverage>"
+  },
+  "prioritizedTopics": [
+    {
+      "name": "<topic name>",
+      "priority": <calculated using formula above>,
+      "pyqFrequency": <from analysis>,
+      "estimatedMarks": <3-10>,
+      "hoursNeeded": <calculated>,
+      "difficulty": "<Easy/Medium/Hard>",
+      "strategy": ["<specific tip 1>", "<specific tip 2>"]
+    }
+  ],
+  "weeklySchedule": [
+    {
+      "week": 1,
+      "focus": "<main focus area>",
+      "dailyPlan": [
+        {
+          "day": "Day 1",
+          "topics": ["<topic 1>", "<topic 2>"],
+          "hours": <number>,
+          "activities": ["<activity 1>", "<activity 2>", "<activity 3>"]
+        }
+      ]
+    }
+  ],
+  "recommendations": [
+    {
+      "type": "critical",
+      "message": "<actionable recommendation>"
+    }
+  ],
+  "examStrategy": {
+    "lastWeek": ["<tip 1>", "<tip 2>"],
+    "lastDay": ["<tip 1>", "<tip 2>"],
+    "examDay": ["<tip 1>", "<tip 2>"]
+  }
+}
+
+**CRITICAL REQUIREMENTS:**
+1. MUST include weeklySchedule array with at least one week
+2. Each week MUST have dailyPlan array with specific daily breakdown
+3. Distribute ${daysUntilExam} days across appropriate number of weeks
+4. Each day in dailyPlan MUST specify topics, hours, and activities
+5. Use the PYQ analysis to prioritize topics that appear frequently
+6. Consider the stress level (${stressLevel}/10) and days available
+7. Make the plan realistic and actionable`;
+
+        const model = genAI.getGenerativeModel({ model: config.geminiModel });
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+
+        log.info(`Gemini response received, length: ${responseText.length} chars`);
+
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            log.error('Gemini response did not contain valid JSON');
+            throw new Error('Gemini response did not contain valid JSON');
+        }
+
+        const aiPlan = JSON.parse(jsonMatch[0]);
+
+        log.info(`AI plan parsed: ${aiPlan.prioritizedTopics?.length || 0} topics, ${aiPlan.weeklySchedule?.length || 0} weeks`);
+
+        const enhancedPlan = {
+            ...aiPlan,
+            metadata: {
+                generatedAt: new Date().toISOString(),
+                examDate,
                 subject,
-                ragResult,
-                subjectData,
-            };
-        });
-
-        const ragResults = await Promise.all(ragPromises);
-
-        const allTopics = [];
-        const subjectAnalysis = {};
-
-        for (const { subject, ragResult, subjectData } of ragResults) {
-            const hasResults = ragResult.results && ragResult.results.length > 0;
-
-            if (hasResults) {
-                const topicAnalysis = analyzeTopics(ragResult.results);
-
-                for (const [topicName, topicData] of topicAnalysis) {
-                    const topicGap = subjectData.topics[topicName];
-                    const understandingGap = topicGap?.gapScore || 3.0;
-                    const confidence = topicGap?.confidence || 2.5;
-
-                    const stressFactor = confidence < 2 ? 5 : confidence < 3 ? 4 : 3;
-
-                    const priority = calculatePriority(
-                        topicData.frequency,
-                        topicData.avgMarks,
-                        understandingGap,
-                        stressFactor,
-                        0
-                    );
-
-                    const estimatedHours = Math.ceil((topicData.avgMarks / 5) * understandingGap);
-
-                    allTopics.push({
-                        subject,
-                        name: topicName,
-                        priority,
-                        frequency: topicData.frequency,
-                        avgMarks: topicData.avgMarks,
-                        understandingGap,
-                        confidence,
-                        stressFactor,
-                        estimatedHours,
-                        scheduledHours: 0,
-                        examples: topicData.examples.slice(0, 3),
-                        strategy: generateStrategyTips(topicData, understandingGap),
-                        yearCount: topicData.yearCount || 0,
-                    });
-                }
-
-                subjectAnalysis[subject] = ragResult.analysis || {};
-            } else {
-                log.warn(`No RAG results for subject ${subject}`);
-
-                const assessmentTopics = Object.keys(subjectData.topics || {});
-                for (const topicName of assessmentTopics) {
-                    const topicGap = subjectData.topics[topicName];
-                    const understandingGap = topicGap?.gapScore || 3.0;
-                    const confidence = topicGap?.confidence || 2.5;
-
-                    allTopics.push({
-                        subject,
-                        name: topicName,
-                        priority: understandingGap * 10,
-                        frequency: 1,
-                        avgMarks: 5,
-                        understandingGap,
-                        confidence,
-                        stressFactor: confidence < 3 ? 4 : 3,
-                        estimatedHours: Math.ceil(understandingGap * 2),
-                        scheduledHours: 0,
-                        examples: [],
-                        strategy: ['Focus on fundamentals - no PYQ data available'],
-                        yearCount: 0,
-                    });
-                }
-            }
-        }
-
-        allTopics.sort((a, b) => b.priority - a.priority);
-
-        const topN = 15;
-        const prioritizedTopics = allTopics.slice(0, topN);
-        const totalHours = prioritizedTopics.reduce(
-            (sum, topic) => sum + topic.estimatedHours,
-            0
-        );
-
-        const schedule = createSchedule(prioritizedTopics, totalHours, 14);
-        const plan = {
-            assessmentId,
-            userId,
-            generatedAt: new Date().toISOString(),
-            summary: {
-                totalTopics: prioritizedTopics.length,
-                totalHours,
-                subjects: subjects.length,
-                overallConfidence: gapVector.overallConfidence,
-                weakAreas: gapVector.weakAreas?.length || 0,
+                daysUntilExam,
+                stressLevel,
+                syllabusCoverage,
+                pyqDataUsed: pyqAnalysis.totalDocuments,
+                generatedBy: 'Gemini AI'
             },
-            topics: prioritizedTopics,
-            schedule,
-            recommendations: generateRecommendations(gapVector, prioritizedTopics),
-            subjectInsights: subjectAnalysis,
+            pyqInsights: pyqAnalysis.topics,
+            ragAnalysis: ragResult.analysis || {}
         };
 
-        log.success(`Plan generated: ${prioritizedTopics.length} topics, ${totalHours} hours`);
+        log.success(`AI plan generated: ${enhancedPlan.prioritizedTopics?.length || 0} topics`);
 
-        return plan;
+        return enhancedPlan;
     } catch (error) {
-        log.error('Plan generation error:', error.message);
+        log.error('AI Plan generation error:', error.message);
         throw new Error(`Failed to generate recovery plan: ${error.message}`);
     }
+};
+
+const analyzeRAGResults = (ragResults) => {
+    if (!ragResults || ragResults.length === 0) {
+        return {
+            summary: 'No PYQ data available for this subject.',
+            totalDocuments: 0,
+            topics: []
+        };
+    }
+
+    const topicMap = new Map();
+
+    for (const result of ragResults) {
+        const { metadata, score } = result;
+        const papers = metadata?.papers || [];
+
+        for (const paper of papers) {
+            const topics = paper.topics || [paper.subject || 'General'];
+            const year = paper.year;
+            const difficulty = paper.difficulty || 'medium';
+
+            for (const topic of topics) {
+                if (!topicMap.has(topic)) {
+                    topicMap.set(topic, {
+                        name: topic,
+                        frequency: 0,
+                        years: new Set(),
+                        avgScore: 0,
+                        totalScore: 0,
+                        difficulty
+                    });
+                }
+
+                const topicData = topicMap.get(topic);
+                topicData.frequency += 1;
+                topicData.totalScore += score;
+                if (year) topicData.years.add(year);
+            }
+        }
+    }
+
+    const topics = Array.from(topicMap.values()).map(t => ({
+        name: t.name,
+        frequency: t.frequency,
+        yearCount: t.years.size,
+        avgRelevance: (t.totalScore / t.frequency).toFixed(2),
+        difficulty: t.difficulty
+    })).sort((a, b) => b.frequency - a.frequency);
+
+    const summaryLines = [
+        `Found ${ragResults.length} relevant PYQ documents.`,
+        `Identified ${topics.length} distinct topics from past papers.`,
+        topics.length > 0 ? `Top topics by frequency: ${topics.slice(0, 5).map(t => `${t.name} (${t.frequency}x)`).join(', ')}` : ''
+    ].filter(Boolean);
+
+    return {
+        summary: summaryLines.join('\n'),
+        totalDocuments: ragResults.length,
+        topics: topics.slice(0, 15)
+    };
 };
 
 const generateStrategyTips = (topicData, understandingGap) => {
@@ -353,7 +423,7 @@ export const formatPlan = (planData) => {
         id: planData.id,
         userId: planData.user_id,
         assessmentId: planData.assessment_id,
-        plan: typeof planData.plan === 'string' ? JSON.parse(planData.plan) : planData.plan,
+        plan: planData.plan,
         createdAt: planData.created_at,
         updatedAt: planData.updated_at,
     };
@@ -403,8 +473,11 @@ export const getUserPlansList = async (userId, limit = 20) => {
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         assessmentSummary: row.assessment_payload ? {
-            subjects: Object.keys(JSON.parse(row.assessment_payload)),
-            questionCount: Object.keys(JSON.parse(row.assessment_payload)).length,
+            examDate: row.assessment_payload.examDate,
+            subject: row.assessment_payload.subject,
+            topics: row.assessment_payload.topics || [],
+            stressLevel: row.assessment_payload.stressLevel,
+            syllabusCoverage: row.assessment_payload.syllabusCoverage
         } : null,
     }));
 };

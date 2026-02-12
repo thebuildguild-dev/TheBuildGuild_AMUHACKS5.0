@@ -1,5 +1,4 @@
 import { query } from '../db/pgClient.js';
-import log from '../utils/logger.js';
 
 export const computeSkillGap = (answers) => {
     const gapVector = {
@@ -64,17 +63,16 @@ export const computeSkillGap = (answers) => {
     return gapVector;
 };
 
-export const saveAssessment = async (userId, answers, gapVector) => {
+export const saveAssessment = async (userId, assessmentData) => {
     const insertQuery = `
-        INSERT INTO assessments (id, user_id, payload, gap_vector, created_at)
-        VALUES (gen_random_uuid(), $1, $2, $3, NOW())
-        RETURNING id, user_id, payload, gap_vector, created_at
+        INSERT INTO assessments (id, user_id, payload, created_at)
+        VALUES (gen_random_uuid(), $1, $2, NOW())
+        RETURNING id, user_id, payload, created_at
     `;
 
     const result = await query(insertQuery, [
         userId,
-        JSON.stringify(answers),
-        JSON.stringify(gapVector),
+        JSON.stringify(assessmentData)
     ]);
 
     return result.rows[0];
@@ -82,7 +80,7 @@ export const saveAssessment = async (userId, answers, gapVector) => {
 
 export const getAssessmentById = async (assessmentId, userId) => {
     const selectQuery = `
-        SELECT id, user_id, payload, gap_vector, created_at
+        SELECT id, user_id, payload, created_at
         FROM assessments
         WHERE id = $1 AND user_id = $2
     `;
@@ -93,7 +91,7 @@ export const getAssessmentById = async (assessmentId, userId) => {
 
 export const getAssessmentsByUser = async (userId, limit = 10) => {
     const selectQuery = `
-        SELECT id, payload, gap_vector, created_at
+        SELECT id, payload, created_at
         FROM assessments
         WHERE user_id = $1
         ORDER BY created_at DESC

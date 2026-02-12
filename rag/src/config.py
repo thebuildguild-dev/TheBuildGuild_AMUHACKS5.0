@@ -28,6 +28,10 @@ class Config:
     REDIS_ENABLED = os.getenv("REDIS_ENABLED", "true").lower() == "true"
     CACHE_TTL = int(os.getenv("CACHE_TTL", "3600"))  # 1 hour default
     
+    # Email Configuration (Resend)
+    RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+    EMAIL_FROM = os.getenv("EMAIL_FROM", "noreply@notifications.thebuildguild.dev")
+    
     # CORS Configuration
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
     CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"

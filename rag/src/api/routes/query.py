@@ -27,8 +27,11 @@ async def search(request: QueryRequest):
     Semantic search over ingested papers (user-specific)
     """
     try:
+        print(f"Query endpoint called - user: {request.user_id}, subject: {request.subject}, query: {request.query[:50]}...")
+        
         # Get user's accessible documents
         user_documents = get_user_documents(request.user_id)
+        print(f"User {request.user_id} has access to {len(user_documents)} documents: {user_documents[:5] if user_documents else 'none'}")
         
         # Generate cache key from query + sorted user documents
         sorted_docs = sorted(user_documents) if user_documents else []
@@ -46,6 +49,7 @@ async def search(request: QueryRequest):
             return cached_result
         
         if not user_documents:
+            print(f"No documents found for user {request.user_id}. Returning empty results.")
             return {
                 "results": [],
                 "analysis": {
@@ -112,7 +116,6 @@ async def search(request: QueryRequest):
             try:
                 from src.clients.gemini_client import generate_content_with_retry
                 from google.genai import types
-                import json
 
                 # Construct context
                 context_parts = []

@@ -5,7 +5,8 @@ import {
     ingestDocuments,
     getJobStatus,
     getDocuments,
-    healthCheck
+    healthCheck,
+    getStats
 } from '../controllers/ragController.js';
 
 const router = express.Router();
@@ -15,5 +16,6 @@ router.post('/ingest', authMiddleware, ingestDocuments);
 router.get('/jobs/:jobId', authMiddleware, getJobStatus);
 router.get('/documents', authMiddleware, getDocuments);
 router.get('/health', healthCheck);
+router.get('/stats', authMiddleware, getStats);
 
 export default router;

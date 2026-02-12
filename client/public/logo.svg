@@ -1,0 +1,35 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="#0a0a0a"/>
+  
+  <!-- Outer border -->
+  <rect x="16" y="16" width="480" height="480" rx="64" stroke="#ccff00" stroke-width="4" fill="none"/>
+  
+  <!-- Document/Paper icon -->
+  <path d="M160 120h192c13.3 0 24 10.7 24 24v224c0 13.3-10.7 24-24 24H160c-13.3 0-24-10.7-24-24V144c0-13.3 10.7-24 24-24z" 
+        fill="#1a1a1a" stroke="#ccff00" stroke-width="3"/>
+  
+  <!-- Folded corner -->
+  <path d="M352 120v48h48l-48-48z" fill="#ccff00" opacity="0.3"/>
+  
+  <!-- Text lines representing PYQ content -->
+  <line x1="180" y1="180" x2="332" y2="180" stroke="#ccff00" stroke-width="3" stroke-linecap="round"/>
+  <line x1="180" y1="210" x2="300" y2="210" stroke="#ccff00" stroke-width="3" stroke-linecap="round"/>
+  <line x1="180" y1="240" x2="320" y2="240" stroke="#ccff00" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- AI brain/circuit pattern -->
+  <circle cx="256" cy="300" r="8" fill="#ccff00"/>
+  <circle cx="226" cy="280" r="6" fill="#ccff00" opacity="0.7"/>
+  <circle cx="286" cy="280" r="6" fill="#ccff00" opacity="0.7"/>
+  <circle cx="226" cy="320" r="6" fill="#ccff00" opacity="0.7"/>
+  <circle cx="286" cy="320" r="6" fill="#ccff00" opacity="0.7"/>
+  
+  <line x1="256" y1="300" x2="226" y2="280" stroke="#ccff00" stroke-width="2" opacity="0.5"/>
+  <line x1="256" y1="300" x2="286" y2="280" stroke="#ccff00" stroke-width="2" opacity="0.5"/>
+  <line x1="256" y1="300" x2="226" y2="320" stroke="#ccff00" stroke-width="2" opacity="0.5"/>
+  <line x1="256" y1="300" x2="286" y2="320" stroke="#ccff00" stroke-width="2" opacity="0.5"/>
+  
+  <!-- Bottom accent - "E" for ExamIntel -->
+  <text x="256" y="370" font-family="Arial, sans-serif" font-size="48" font-weight="bold" 
+        fill="#ccff00" text-anchor="middle">E</text>
+</svg>

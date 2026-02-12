@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from typing import List, Optional
-from src.services.ingestion_service import create_job, get_job_status
+from src.services.ingestion_service import create_job, get_job_status, get_system_stats
 from src.pipelines.ingest_pipeline import run_ingestion_pipeline
+from src.config import config
 
 router = APIRouter()
 
@@ -13,6 +14,16 @@ class IngestUrlRequest(BaseModel):
 class JobResponse(BaseModel):
     job_id: str
     status: str
+
+@router.get("/ingest/stats")
+async def get_stats():
+    """Get system statistics, including unique document count (SHA256)"""
+    try:
+        stats = get_system_stats()
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/ingest/url", response_model=JobResponse)
 async def ingest_url(

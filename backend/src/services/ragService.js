@@ -161,3 +161,13 @@ export const checkServiceHealth = async () => {
         return false;
     }
 };
+
+export const getServiceStats = async () => {
+    try {
+        const response = await ragAxios.get('/api/v1/ingest/stats', { timeout: 5000 });
+        return response.data;
+    } catch (error) {
+        log.warn('RAG service stats check failed:', error.message);
+        throw error;
+    }
+};

@@ -18,6 +18,26 @@ def get_db_connection():
         print(f"DB Connection failed: {e}")
         return None
 
+def get_user_email(user_id: str) -> Optional[str]:
+    """Get user email from database by user_id"""
+    conn = get_db_connection()
+    if not conn:
+        return None
+    
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT email FROM users WHERE id = %s",
+            (user_id,)
+        )
+        result = cur.fetchone()
+        return result['email'] if result else None
+    except Exception as e:
+        print(f"Failed to get user email: {e}")
+        return None
+    finally:
+        conn.close()
+
 def create_job(user_id: str, total_sources: int) -> str:
     """Create a new ingestion job in PostgreSQL"""
     conn = get_db_connection()
@@ -96,6 +116,34 @@ def get_job_status(job_id: str) -> Optional[Dict]:
         return None
     finally:
         conn.close()
+
+def get_system_stats() -> Dict[str, Any]:
+    """Get system stats from PostgreSQL"""
+    conn = get_db_connection()
+    if not conn:
+        return {"unique_documents": 0, "total_chunks": 0}
+    
+    try:
+        cur = conn.cursor()
+        
+        # Get total unique documents
+        cur.execute("SELECT COUNT(*) as count FROM documents")
+        doc_count = cur.fetchone()['count']
+        
+        # Get total chunks
+        cur.execute("SELECT COUNT(*) as count FROM document_chunks")
+        chunk_count = cur.fetchone()['count']
+        
+        return {
+            "unique_documents": doc_count,
+            "total_chunks": chunk_count
+        }
+    except Exception as e:
+        print(f"Failed to get stats: {e}")
+        return {"unique_documents": 0, "total_chunks": 0}
+    finally:
+        conn.close()
+
 
 def check_document_exists(sha256_hash: str) -> Optional[Dict]:
     """Check if document already exists in database"""

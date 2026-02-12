@@ -19,8 +19,9 @@ from src.services.embedding_service import embed_texts
 from src.services.vector_service import ensure_collection, upsert_vectors
 from src.services.ingestion_service import (
     update_job_status, check_document_exists, link_document_to_user, 
-    save_document_metadata, save_chunk_metadata, save_papers
+    save_document_metadata, save_chunk_metadata, save_papers, get_user_email
 )
+from src.services.email_service import send_ingestion_notification
 
 def run_ingestion_pipeline(job_id: str, user_id: str, sources: List[Dict]):
     """
@@ -35,6 +36,7 @@ def run_ingestion_pipeline(job_id: str, user_id: str, sources: List[Dict]):
     duplicates_count = 0
     errors_list = []
     documents_list = []
+    total_chunks = 0
 
     try:
         print(f"Starting pipeline for job {job_id}")
@@ -170,6 +172,7 @@ def run_ingestion_pipeline(job_id: str, user_id: str, sources: List[Dict]):
             # Upsert batch
             if points_to_upsert:
                 upsert_vectors(points_to_upsert)
+                total_chunks += len(points_to_upsert)
 
             success_count += 1
             documents_list.append(sha256)
@@ -227,3 +230,34 @@ def run_ingestion_pipeline(job_id: str, user_id: str, sources: List[Dict]):
             
         update_job_status(job_id, final_update)
         cleanup_directory(work_dir)
+        
+        # Send email notification
+        user_email = get_user_email(user_id)
+        if user_email:
+            if final_status == 'completed':
+                send_ingestion_notification(
+                    user_email=user_email,
+                    status='success',
+                    document_count=success_count,
+                    chunk_count=total_chunks,
+                    job_id=job_id
+                )
+            elif final_status == 'failed':
+                error_msg = '; '.join(errors_list[:3]) if errors_list else 'Unknown error'
+                send_ingestion_notification(
+                    user_email=user_email,
+                    status='failed',
+                    document_count=0,
+                    chunk_count=0,
+                    job_id=job_id,
+                    error_message=error_msg
+                )
+            elif final_status == 'completed_with_errors':
+                send_ingestion_notification(
+                    user_email=user_email,
+                    status='success',
+                    document_count=success_count,
+                    chunk_count=total_chunks,
+                    job_id=job_id,
+                    error_message=f"{failed_count} documents failed to process"
+                )

@@ -5,7 +5,8 @@ import {
     submitDocumentsForIngestion,
     checkJobStatus,
     getUserDocuments,
-    checkServiceHealth
+    checkServiceHealth,
+    getServiceStats
 } from '../services/ragService.js';
 import {
     sendSuccess,
@@ -16,6 +17,7 @@ import {
     sendError
 } from '../utils/response.js';
 import log from '../utils/logger.js';
+
 
 export const queryRAG = async (req, res) => {
     try {
@@ -114,5 +116,15 @@ export const healthCheck = async (req, res) => {
     } catch (error) {
         log.error('RAG health check error:', error.message);
         return sendServiceUnavailable(res, 'RAG service health check failed');
+    }
+};
+
+export const getStats = async (req, res) => {
+    try {
+        const stats = await getServiceStats();
+        return sendSuccess(res, stats);
+    } catch (error) {
+        log.error('RAG stats error:', error.message);
+        return sendError(res, 'Failed to fetch RAG stats', 500, error);
     }
 };

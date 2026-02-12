@@ -1,50 +1,64 @@
 import {
-    validateAssessmentAnswers,
-    computeSkillGap,
     saveAssessment,
     getAssessmentById,
     getAssessmentsByUser
 } from '../services/assessmentService.js';
-import { generatePlan } from '../services/planService.js';
+import { generatePlan, savePlan } from '../services/planService.js';
+import { sendPlanGeneratedEmail } from '../services/emailService.js';
 import { sendSuccess, sendBadRequest, sendNotFound, handleDatabaseError } from '../utils/response.js';
 import log from '../utils/logger.js';
 
 export const submitAssessment = async (req, res) => {
     try {
-        const { answers } = req.body;
+        const { examDate, subject, topics, stressLevel, syllabusCoverage, additionalNotes } = req.body;
         const userId = req.user.uid;
 
-        const validation = validateAssessmentAnswers(answers);
-        if (!validation.valid) {
-            return sendBadRequest(res, validation.message);
+        if (!examDate || !subject) {
+            return sendBadRequest(res, 'Exam date and subject are required');
         }
 
-        const gapVector = computeSkillGap(answers);
+        if (new Date(examDate) < new Date()) {
+            return sendBadRequest(res, 'Exam date must be in the future');
+        }
 
-        const assessment = await saveAssessment(userId, answers, gapVector);
+        const assessmentData = {
+            examDate,
+            subject,
+            topics: topics || [],
+            stressLevel: parseInt(stressLevel) || 5,
+            syllabusCoverage: parseInt(syllabusCoverage) || 50,
+            additionalNotes: additionalNotes || ''
+        };
 
+        const assessment = await saveAssessment(userId, assessmentData);
         log.success(`Assessment ${assessment.id} saved for user ${userId}`);
 
         try {
-            const plan = await generatePlan(userId, {
-                assessmentId: assessment.id,
-                answers,
-                gapVector,
-            });
+            const plan = await generatePlan(userId, assessmentData);
+            const savedPlan = await savePlan(userId, assessment.id, plan);
+
+            // Send email notification
+            if (req.user.email) {
+                await sendPlanGeneratedEmail(req.user.email, plan, assessmentData, savedPlan.id);
+            }
 
             return sendSuccess(res, {
                 assessmentId: assessment.id,
-                plan,
-            }, 'Assessment submitted and plan generated');
+                plan: {
+                    id: savedPlan.id,
+                    ...plan
+                }
+            }, 'Assessment submitted and AI recovery plan generated');
         } catch (planError) {
             log.error('Plan generation error:', planError.message);
 
             return res.status(202).json({
                 success: true,
-                message: 'Assessment saved, plan generation in progress',
+                message: 'Assessment saved, but plan generation failed. Please try again.',
                 data: {
                     assessmentId: assessment.id,
                     status: 'pending',
+                    error: planError.message
                 },
             });
         }

@@ -1,0 +1,131 @@
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+  background: rgba(5, 5, 5, 0.85);
+  backdrop-filter: var(--glass-bf);
+  -webkit-backdrop-filter: var(--glass-bf);
+  border-bottom: 1px solid var(--border-strong);
+  height: 70px;
+  display: flex;
+  align-items: center;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  letter-spacing: 0.1em;
+  color: var(--text-main);
+  text-transform: uppercase;
+  transition: opacity 0.3s;
+}
+
+.logo:hover {
+  opacity: 0.8;
+}
+
+.logo-accent {
+  color: var(--accent-primary);
+  text-shadow: 0 0 10px rgba(204, 255, 0, 0.3);
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0.5rem 0.8rem;
+  border: 1px solid transparent;
+}
+
+.nav-link:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-link.active-link {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  background: rgba(204, 255, 0, 0.05);
+  box-shadow: 0 0 15px rgba(204, 255, 0, 0.1);
+}
+
+.nav-label {
+  display: block;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Hide labels on mobile */
+@media (max-width: 768px) {
+  .nav-label {
+    display: none;
+  }
+  .header-nav {
+    gap: 1rem;
+  }
+}
+
+.nav-divider {
+  height: 24px;
+  width: 1px;
+  background: var(--border-strong);
+  margin: 0 0.5rem;
+}
+
+.profile-link {
+  border: none;
+  padding: 0;
+}
+
+.profile-link:hover {
+  background: none;
+}
+
+.profile-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  object-fit: cover;
+}
+
+.user-name {
+  color: var(--text-main);
+  font-family: var(--font-display);
+  letter-spacing: 0.05em;
+}
+
+.header-logout-btn {
+  color: var(--text-dim);
+  transition: color 0.3s;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.header-logout-btn:hover {
+  color: var(--accent-secondary);
+}

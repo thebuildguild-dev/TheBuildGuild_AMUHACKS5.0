@@ -2,6 +2,7 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import config from './config/index.js';
+import { rateLimiter } from './middleware/rateLimitMiddleware.js';
 import authRouter from './routes/auth.js';
 import assessmentRouter from './routes/assessment.js';
 import planRouter from './routes/plan.js';
@@ -21,6 +22,9 @@ app.use(cors({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Apply rate limiting
+app.use(rateLimiter);
 
 app.get('/health', (req, res) => {
     res.json({ ok: true });

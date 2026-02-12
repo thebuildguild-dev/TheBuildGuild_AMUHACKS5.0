@@ -1,32 +1,38 @@
 import dotenv from 'dotenv';
 import app from './app.js';
+import config from './config/index.js';
 import log from './utils/logger.js';
+import { getRedisClient, closeRedisClient } from './db/redisClient.js';
 
 dotenv.config();
 
-const PORT = process.env.PORT || 8000;
+// Initialize Redis connection
+getRedisClient();
 
-const server = app.listen(PORT, () => {
-    log.success(`ExamIntel Backend running on port ${PORT}`);
-    log.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+const server = app.listen(config.port, () => {
+    log.success(`ExamIntel Backend running on port ${config.port}`);
+    log.info(`Environment: ${config.nodeEnv}`);
 });
 
-process.on('unhandledRejection', (err) => {
+process.on('unhandledRejection', async (err) => {
     log.error('UNHANDLED REJECTION! Shutting down...');
     log.error(err.name, err.message);
+    await closeRedisClient();
     server.close(() => {
         process.exit(1);
     });
 });
 
-process.on('uncaughtException', (err) => {
+process.on('uncaughtException', async (err) => {
     log.error('UNCAUGHT EXCEPTION! Shutting down...');
     log.error(err.name, err.message);
+    await closeRedisClient();
     process.exit(1);
 });
 
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
     log.info('SIGTERM received. Shutting down gracefully...');
+    await closeRedisClient();
     server.close(() => {
         log.info('Process terminated');
     });

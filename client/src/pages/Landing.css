@@ -1,0 +1,205 @@
+.landing-page {
+  position: relative;
+  /* height: 100vh; Removed to allow footer to flow */
+  min-height: calc(100vh - 40px); /* Subtract footer height */
+  width: 100vw;
+  /* overflow: hidden; */
+  background-color: var(--bg-deep);
+  color: var(--text-main);
+}
+
+.landing-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.grid-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(var(--border-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-strong) 1px, transparent 1px);
+  background-size: 50px 50px;
+  opacity: 0.15;
+  mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 80%);
+}
+
+.noise-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.05;
+  background: 
+    repeating-linear-gradient(
+      45deg,
+      #000,
+      #000 2px,
+      #111 2px,
+      #111 4px
+    );
+}
+
+.landing-content {
+  position: relative;
+  z-index: 10;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding-left: 10vw;
+  padding-top: 5rem; /* Added space to prevent touching top */
+}
+
+.status-badge {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+  padding: 0.3rem 0.8rem;
+  margin-bottom: 2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+  box-shadow: 0 0 8px var(--accent-primary);
+}
+
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.hero-title {
+  font-size: 8rem;
+  line-height: 0.85;
+  margin-bottom: 2rem;
+  font-weight: 400;
+}
+
+@media (max-width: 1200px) {
+  .hero-title { font-size: 6rem; }
+}
+@media (max-width: 768px) {
+  .hero-title { font-size: 4rem; }
+  .landing-content { padding-left: 2rem; padding-right: 2rem; }
+}
+
+.outline-text {
+  color: transparent;
+  -webkit-text-stroke: 2px var(--text-dim);
+  opacity: 0.5;
+  margin-right: 15px;
+}
+
+.filled-text {
+  color: var(--text-main);
+  text-shadow: 10px 10px 0px rgba(255, 255, 255, 0.05);
+}
+
+.glitch-text {
+  color: var(--accent-primary);
+  position: relative;
+  display: inline-block;
+}
+
+/* Glitch effects kept from previous css... */
+.glitch-text::before,
+.glitch-text::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-deep);
+}
+.glitch-text::before {
+  left: 2px;
+  text-shadow: -2px 0 var(--accent-secondary);
+  animation: glitch-anim-2 3s infinite linear alternate-reverse;
+  clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
+}
+.glitch-text::after {
+  left: -2px;
+  text-shadow: -2px 0 var(--accent-warn);
+  animation: glitch-anim 2.5s infinite linear alternate-reverse;
+  clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
+}
+
+@keyframes glitch-anim {
+  0% { clip-path: inset(10% 0 80% 0); }
+  20% { clip-path: inset(80% 0 10% 0); }
+  40% { clip-path: inset(40% 0 50% 0); }
+  60% { clip-path: inset(10% 0 20% 0); }
+  80% { clip-path: inset(60% 0 30% 0); }
+  100% { clip-path: inset(30% 0 10% 0); }
+}
+
+@keyframes glitch-anim-2 {
+  0% { clip-path: inset(70% 0 10% 0); }
+  25% { clip-path: inset(20% 0 60% 0); }
+  50% { clip-path: inset(50% 0 30% 0); }
+  75% { clip-path: inset(10% 0 70% 0); }
+  100% { clip-path: inset(30% 0 10% 0); }
+}
+
+.hero-subtitle {
+  font-family: var(--font-body);
+  font-size: 1.2rem;
+  max-width: 600px;
+  margin-bottom: 3rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.highlight {
+  color: var(--accent-primary);
+  border-bottom: 1px dashed var(--accent-primary);
+}
+
+.cta-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.primary-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background-color: var(--text-main);
+  color: var(--bg-deep);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 1.1rem;
+  padding: 1rem 2rem;
+  border: 1px solid var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.2s;
+  box-shadow: 10px 10px 0px rgba(51, 51, 51, 0.5);
+}
+

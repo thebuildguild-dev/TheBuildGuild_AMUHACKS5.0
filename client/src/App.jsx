@@ -1,35 +1,118 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { AuthProvider, useAuth } from './context/AuthContext';
+
+// Pages
+import Landing from './pages/Landing';
+import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
+import Assessment from './pages/Assessment';
+import UploadPYQ from './pages/UploadPYQ';
+import NotFound from './pages/NotFound';
+import Plan from './pages/Plan';
+import History from './pages/History';
+import Footer from './components/Footer';
+
+// Protected Route Component
+const ProtectedRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) return (
+    <div style={{ 
+        height: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: 'var(--bg-deep)',
+        color: 'var(--accent-primary)',
+        fontFamily: 'var(--font-display)',
+        fontSize: '2rem'
+    }}>
+        INITIALIZING SYSTEM...
+    </div>
+  );
+  
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <AuthProvider>
+        <Router>
+            <div className="app-container">
+                <Toaster 
+                    position="bottom-right"
+                    toastOptions={{
+                        style: {
+                            background: '#0a0a0a',
+                            color: '#fff',
+                            border: '1px solid #333',
+                            borderRadius: '0px',
+                            fontFamily: 'var(--font-body)',
+                        },
+                        success: {
+                            style: {
+                                border: '1px solid var(--accent-primary)',
+                                color: 'var(--accent-primary)',
+                            },
+                            iconTheme: {
+                                primary: 'var(--accent-primary)',
+                                secondary: '#000',
+                            },
+                        }
+                    }}
+                />
+                
+                <Routes>
+                    <Route path="/" element={<Landing />} />
+                    
+                    <Route path="/dashboard" element={
+                        <ProtectedRoute>
+                            <Dashboard />
+                        </ProtectedRoute>
+                    } />
+                    
+                    <Route path="/profile" element={
+                        <ProtectedRoute>
+                            <Profile />
+                        </ProtectedRoute>
+                    } />
+                    
+                    <Route path="/assessment" element={
+                        <ProtectedRoute>
+                            <Assessment />
+                        </ProtectedRoute>
+                    } />
+                    
+                    <Route path="/upload-pyq" element={
+                        <ProtectedRoute>
+                            <UploadPYQ />
+                        </ProtectedRoute>
+                    } />
+
+                    <Route path="/plan/:planId" element={
+                        <ProtectedRoute>
+                            <Plan />
+                        </ProtectedRoute>
+                    } />
+
+                    <Route path="/history" element={
+                        <ProtectedRoute>
+                            <History />
+                        </ProtectedRoute>
+                    } />
+
+                    <Route path="*" element={<NotFound />} />
+                </Routes>
+                <Footer />
+            </div>
+        </Router>
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;
