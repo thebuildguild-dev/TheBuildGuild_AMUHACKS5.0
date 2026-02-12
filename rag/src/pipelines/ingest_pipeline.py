@@ -16,7 +16,7 @@ from src.utils.file_utils import create_temp_dir, cleanup_directory
 from src.services.gemini_extraction_service import extract_text_from_chunk
 from src.services.metadata_service import detect_exam_papers
 from src.services.embedding_service import embed_texts
-from src.services.vector_service import ensure_collection, upsert_vectors, DEFAULT_COLLECTION_NAME
+from src.services.vector_service import ensure_collection, upsert_vectors
 from src.services.ingestion_service import (
     update_job_status, check_document_exists, link_document_to_user, 
     save_document_metadata, save_chunk_metadata, save_papers

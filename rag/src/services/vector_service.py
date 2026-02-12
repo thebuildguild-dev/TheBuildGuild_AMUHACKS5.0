@@ -4,7 +4,6 @@ from src.clients.qdrant_client import get_qdrant_client
 from src.config import config
 
 def ensure_collection(collection_name: str = None, vector_size: int = 3072):
-    """Ensure Qdrant collection exists"""
     if collection_name is None:
         collection_name = config.COLLECTION_NAME
     client = get_qdrant_client()
@@ -18,8 +17,9 @@ def ensure_collection(collection_name: str = None, vector_size: int = 3072):
     except Exception as e:
         print(f"Error ensuring collection: {e}")
 
-def upsert_vectors(points: List[Dict[str, Any]], collection_name: str = DEFAULT_COLLECTION_NAME):
-    """Upsert vectors to Qdrant"""
+def upsert_vectors(points: List[Dict[str, Any]], collection_name: str = None):
+    if collection_name is None:
+        collection_name = config.COLLECTION_NAME
     client = get_qdrant_client()
     if not points:
         return
@@ -44,23 +44,15 @@ def upsert_vectors(points: List[Dict[str, Any]], collection_name: str = DEFAULT_
 def search_vectors(
     query_vector: List[float], 
     limit: int = 5, 
-    collection_name: str = DEFAULT_COLLECTION_NAME,
+    collection_name: str = None,
     document_sha256_filter: Optional[List[str]] = None
 ):
-    """
-    Search for similar vectors with optional filtering by document SHA256.
-    
-    Args:
-        query_vector: The embedding vector to search for
-        limit: Maximum number of results to return
-        collection_name: Qdrant collection name
-        document_sha256_filter: Optional list of SHA256 hashes to filter results by user's accessible documents
-    """
+    if collection_name is None:
+        collection_name = config.COLLECTION_NAME
     client = get_qdrant_client()
     try:
         query_filter = None
         if document_sha256_filter:
-            # Filter to only include vectors from user's documents
             query_filter = Filter(
                 must=[
                     FieldCondition(

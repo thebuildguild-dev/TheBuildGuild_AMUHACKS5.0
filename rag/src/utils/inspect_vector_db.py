@@ -1,12 +1,12 @@
 import os
 from src.clients.qdrant_client import get_qdrant_client
-from src.services.vector_service import DEFAULT_COLLECTION_NAME
+from src.config import config
 import json
 
 def inspect_vector_db():
     print(f"Connecting to Qdrant...")
     client = get_qdrant_client()
-    collection_name = DEFAULT_COLLECTION_NAME
+    collection_name = config.COLLECTION_NAME
     
     try:
         info = client.get_collection(collection_name)
