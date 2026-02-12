@@ -24,12 +24,12 @@ AI-powered academic recovery using PYQ intelligence for students.
 
 ## Overview
 
-ExamIntel is an AI-powered academic recovery system that transforms **15 years of AMU Past Year Questions (PYQs)** into personalized study plans. Using **RAG (Retrieval-Augmented Generation)** with Google Gemini AI, the system analyzes historical exam patterns and creates optimized recovery plans tailored to each student's gaps, deadlines, and learning style.
+ExamIntel is an AI-powered academic recovery system that transforms **Past Year Questions (PYQs)** into personalized study plans. Using **RAG (Retrieval-Augmented Generation)** with Google Gemini AI, the system analyzes historical exam patterns and creates optimized recovery plans tailored to each student's gaps, deadlines, and learning style.
 
 ### Key Features
 
 - **Smart Assessment**: 6-7 targeted questions to understand student gaps and constraints
-- **PYQ Intelligence**: Semantic search across 15 years of AMU PYQs (2010-2025)
+- **PYQ Intelligence**: Semantic search across relevant PYQs
 - **AI-Powered Analysis**: Google Gemini identifies topic frequencies and exam patterns
 - **Multi-Factor Planning**: Priority scoring based on PYQ frequency, marks weightage, and student gaps
 - **Personalized Dashboard**: Daily schedules, priority topics, and exam strategies
@@ -65,7 +65,7 @@ Students struggle with academic recovery due to:
 
 ### The Opportunity
 
-15 years of AMU PYQs (2010-2025) contain predictable patterns, yet students study blindly without this intelligence. Our solution transforms historical exam data into personalized, actionable recovery plans.
+Previous Year Questions (PYQs) contain predictable patterns, yet students study blindly without this intelligence. Our solution transforms historical exam data into personalized, actionable recovery plans.
 
 ---
 
@@ -614,9 +614,9 @@ docker compose exec postgres psql -U postgres -d examintel_db
 ### What Sets Us Apart
 
 **1. RAG-Powered PYQ Intelligence**
-- First system to semantically search 15 years of AMU PYQs
+- First system to semantically search PYQs
 - AI-driven pattern detection via Gemini (not just storage)
-- "Trees appeared in 12/15 papers" → Direct study priorities
+- "Trees appeared in 12 papers" → Direct study priorities
 
 **2. AMU-First, Then Universal**
 - **Now:** Exclusive focus on AMU students with real AMU data
@@ -644,7 +644,7 @@ docker compose exec postgres psql -U postgres -d examintel_db
 
 **Target:** 500 AMU students  
 **Infrastructure:** Single Docker Compose stack  
-**Data:** 100+ AMU PYQs (2010-2025)
+**Data:** 100+ PYQs
 
 ### Phase 2: Universal Platform (Future)
 
