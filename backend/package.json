@@ -1,7 +1,7 @@
 {
-  "name": "amu-recovery-backend",
+  "name": "examintel-backend",
   "version": "1.0.0",
-  "description": "AMU Academic Recovery Engine - Backend API",
+  "description": "ExamIntel - AI-powered academic recovery Backend API",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
@@ -11,7 +11,7 @@
   },
   "keywords": [
     "express",
-    "amu",
+    "examintel",
     "education",
     "recovery-plan"
   ],
@@ -24,7 +24,9 @@
     "firebase-admin": "^12.0.0",
     "axios": "^1.6.2",
     "cors": "^2.8.5",
-    "helmet": "^7.1.0"
+    "helmet": "^7.1.0",
+    "multer": "^1.4.5-lts.1",
+    "form-data": "^4.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2",

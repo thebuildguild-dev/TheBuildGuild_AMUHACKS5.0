@@ -7,17 +7,20 @@ const config = {
     nodeEnv: process.env.NODE_ENV || 'development',
 
     // Database
-    databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/amu_recovery',
+    databaseUrl: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/examintel_db',
 
     // Firebase
     firebaseProjectId: process.env.FIREBASE_PROJECT_ID,
     firebaseCredentialsJson: process.env.FIREBASE_CREDENTIALS_JSON,
 
     // RAG Service
-    ragUrl: process.env.RAG_URL || 'http://rag:8000',
+    ragUrl: process.env.RAG_URL || 'http://rag:8001',
 
-    // Qdrant
-    qdrantDumpPath: process.env.QDRANT_DUMP_PATH,
+    // CORS
+    corsOrigins: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : ['http://localhost:3000'],
+    corsAllowCredentials: process.env.CORS_ALLOW_CREDENTIALS === 'true',
+    corsAllowMethods: process.env.CORS_ALLOW_METHODS || '*',
+    corsAllowHeaders: process.env.CORS_ALLOW_HEADERS || '*',
 };
 
 // Validate required config

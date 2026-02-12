@@ -1,43 +1,43 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import config from './config/index.js';
 import authRouter from './routes/auth.js';
 import assessmentRouter from './routes/assessment.js';
 import planRouter from './routes/plan.js';
 import ragProxyRouter from './routes/ragProxy.js';
+import { sendNotFound, sendError } from './utils/response.js';
+import log from './utils/logger.js';
 
 const app = express();
 
-// Security middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+    origin: config.corsOrigins,
+    credentials: config.corsAllowCredentials,
+    methods: config.corsAllowMethods,
+    allowedHeaders: config.corsAllowHeaders,
+}));
 
-// Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check
 app.get('/health', (req, res) => {
     res.json({ ok: true });
 });
 
-// API routes
 app.use('/api/auth', authRouter);
 app.use('/api/assessment', assessmentRouter);
 app.use('/api/plan', planRouter);
 app.use('/api/rag', ragProxyRouter);
 
-// 404 handler
 app.use((req, res) => {
-    res.status(404).json({ error: 'Route not found' });
+    sendNotFound(res, 'Route not found');
 });
 
-// Error handler
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(err.status || 500).json({
-        error: err.message || 'Internal server error'
-    });
+    log.error('Unhandled error:', err.stack);
+    sendError(res, err.message || 'Internal server error', err.status || 500, err);
 });
 
 export default app;
