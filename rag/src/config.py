@@ -21,6 +21,13 @@ class Config:
     VECTOR_SIZE = int(os.getenv("VECTOR_SIZE", "3072"))
     COLLECTION_NAME = os.getenv("COLLECTION_NAME", "examintel_pyq")
     
+    # Redis Configuration
+    REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "") or None
+    REDIS_ENABLED = os.getenv("REDIS_ENABLED", "true").lower() == "true"
+    CACHE_TTL = int(os.getenv("CACHE_TTL", "3600"))  # 1 hour default
+    
     # CORS Configuration
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
     CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"

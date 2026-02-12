@@ -5,6 +5,7 @@ from psycopg2.extras import RealDictCursor
 from typing import Dict, Optional, List, Any
 from datetime import datetime
 from src.config import config
+from src.clients.redis_client import cache_get, cache_set, invalidate_pattern
 
 def get_db_connection():
     """Get PostgreSQL connection"""
@@ -128,6 +129,12 @@ def link_document_to_user(user_id: str, sha256_hash: str):
             (user_id, sha256_hash)
         )
         conn.commit()
+        
+        # Invalidate user's document cache and query cache
+        cache_key = f"user_docs:{user_id}"
+        invalidate_pattern(cache_key)
+        invalidate_pattern(f"query:*")  # Invalidate all query caches since document set changed
+        
         print(f"Linked document {sha256_hash[:8]}... to user {user_id}")
     except Exception as e:
         print(f"Database link error: {e}")
@@ -172,6 +179,12 @@ def save_document_metadata(doc_info: Dict, user_id: str) -> Optional[str]:
             (user_id, doc_info['sha256'])
         )
         conn.commit()
+        
+        # Invalidate user's document cache and query cache
+        cache_key = f"user_docs:{user_id}"
+        invalidate_pattern(cache_key)
+        invalidate_pattern(f"query:*")  # Invalidate all query caches since document set changed
+        
         return chunk_db_id
     except Exception as e:
         print(f"Database save error: {e}")
@@ -287,8 +300,14 @@ def save_chunk_metadata(doc_sha256: str, chunk_info: Dict, qdrant_id: str, text_
 
 def get_user_documents(user_id: str) -> List[str]:
     """
-    Get all document SHA256 hashes that a user has access to.
+    Get all document SHA256 hashes that a user has access to (with caching).
     """
+    # Check cache first
+    cache_key = f"user_docs:{user_id}"
+    cached_docs = cache_get(cache_key)
+    if cached_docs is not None:
+        return cached_docs
+    
     conn = get_db_connection()
     if not conn:
         return []
@@ -304,7 +323,12 @@ def get_user_documents(user_id: str) -> List[str]:
             (user_id,)
         )
         results = cur.fetchall()
-        return [row['document_sha256'] for row in results]
+        doc_list = [row['document_sha256'] for row in results]
+        
+        # Cache for 5 minutes
+        cache_set(cache_key, doc_list, ttl=300)
+        
+        return doc_list
     except Exception as e:
         print(f"Error fetching user documents: {e}")
         return []

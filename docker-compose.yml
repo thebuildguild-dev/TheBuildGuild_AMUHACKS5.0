@@ -69,6 +69,11 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       DATABASE_URL: ${DATABASE_URL}
       COLLECTION_NAME: ${COLLECTION_NAME:-examintel_pyq}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_ENABLED: ${REDIS_ENABLED:-true}
+      CACHE_TTL: ${CACHE_TTL:-3600}
       CORS_ORIGINS: ${CORS_ORIGINS}
       CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS}
       CORS_ALLOW_METHODS: ${CORS_ALLOW_METHODS}
@@ -79,6 +84,8 @@ services:
       qdrant:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - app-network

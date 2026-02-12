@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Any, Dict
+import hashlib
+import json
 from src.config import config
 from src.services.vector_service import search_vectors
 from src.services.embedding_service import embed_texts
 from src.services.ingestion_service import get_user_documents
+from src.clients.redis_client import cache_get, cache_set
 
 router = APIRouter()
 
@@ -26,6 +29,21 @@ async def search(request: QueryRequest):
     try:
         # Get user's accessible documents
         user_documents = get_user_documents(request.user_id)
+        
+        # Generate cache key from query + sorted user documents
+        sorted_docs = sorted(user_documents) if user_documents else []
+        cache_key_data = {
+            "query": request.query,
+            "subject": request.subject,
+            "top_k": request.top_k,
+            "documents": sorted_docs
+        }
+        cache_key = f"query:{hashlib.sha256(json.dumps(cache_key_data, sort_keys=True).encode()).hexdigest()}"
+        
+        # Check cache first
+        cached_result = cache_get(cache_key)
+        if cached_result:
+            return cached_result
         
         if not user_documents:
             return {
@@ -150,10 +168,15 @@ async def search(request: QueryRequest):
                     "difficulty": "Unknown"
                 }
 
-        return {
+        result = {
             "results": formatted_results,
             "analysis": analysis
         }
+        
+        # Cache the result
+        cache_set(cache_key, result)
+        
+        return result
 
     except Exception as e:
         print(f"Query error: {e}")
